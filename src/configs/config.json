@@ -1,0 +1,33 @@
+{
+  "botName": "ZCA",
+  "prefix": "!",
+  "ownerId": "1000123456789",
+  "admins": ["10001", "10002"],
+  "database": {
+    "type": "mongodb",
+    "uri": "mongodb://localhost:27017/zca"
+  },
+  "logging": {
+    "level": "info",
+    "file": "logs/bot.log"
+  },
+  "accounts": [
+    {
+      "accountId": "bot1",
+      "loginMethod": "qr",
+      "qrPath": "qr_bot1.png",
+      "zaloConfig": {
+        "selfListen": false,
+        "checkUpdate": false,
+        "logging": false
+      },
+      "proxyConfig": {
+        "enabled": false,
+        "url": "http://proxy.example.com:8080"
+      },
+      "cookie": {},
+      "imei": "your_imei_here",
+      "userAgent": "your_user_agent_here"
+    }
+  ]
+}

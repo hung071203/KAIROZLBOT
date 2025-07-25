@@ -1,4 +1,3 @@
-// Types cho ZCA-JS Bot
 export interface ZaloConfig {
   selfListen?: boolean;
   checkUpdate?: boolean;
@@ -9,28 +8,17 @@ export interface ZaloConfig {
 
 export interface ProxyConfig {
   enabled: boolean;
-  protocol: 'http' | 'https';
+  protocol: "http" | "https";
   host: string;
   port: number;
   username?: string;
   password?: string;
 }
 
-export interface LoginWithCookie {
-  cookie: any;
-  imei: string;
-  userAgent: string;
-}
-
-export interface LoginWithQR {
-  userAgent?: string;
-  qrPath?: string;
-}
-
 export interface AccountConfig {
   id: string;
   name: string;
-  loginMethod: 'cookie' | 'qr';
+  loginMethod: "cookie" | "qr";
   cookie?: any;
   imei?: string;
   userAgent?: string;
@@ -44,4 +32,15 @@ export interface BotConfig {
   selfListen?: boolean;
   checkUpdate?: boolean;
   logging?: boolean;
+}
+
+export interface LoginWithCookie {
+  cookie: any;
+  imei: string;
+  userAgent: string;
+}
+
+export interface LoginWithQR {
+  userAgent?: string;
+  qrPath?: string;
 }

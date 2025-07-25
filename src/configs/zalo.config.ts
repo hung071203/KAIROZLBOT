@@ -7,7 +7,7 @@ import {
   LoginWithQR,
   ZaloConfig,
   AccountConfig,
-} from "../common";
+} from "../common/types";
 
 config();
 
@@ -175,6 +175,10 @@ export class KairoZLBot {
     }
   }
 
+  getAccountId(): string {
+    return this.accountId;
+  }
+
   /**
    * Lấy API instance
    */
@@ -183,71 +187,6 @@ export class KairoZLBot {
       throw new Error("Chưa đăng nhập!");
     }
     return this.api;
-  }
-
-  /**
-   * Thiết lập các listener cho bot
-   */
-  setupListeners() {
-    if (!this.api) {
-      throw new Error("Chưa đăng nhập! Hãy gọi phương thức login trước.");
-    }
-
-    const { listener } = this.api;
-
-    // Lắng nghe tin nhắn
-    listener.on("message", async (msg: any) => {
-      try {
-        console.log(`📩 [${this.accountId}] Nhận tin nhắn:`, {
-          threadId: msg.threadId,
-          type: msg.type,
-          content: msg.data.content,
-        });
-
-        // Xử lý tin nhắn ở đây
-        await this.handleMessage(msg);
-      } catch (error) {
-        console.error(`❌ [${this.accountId}] Lỗi xử lý tin nhắn:`, error);
-      }
-    });
-
-    // Lắng nghe sự kiện reaction
-    listener.on("reaction", (reaction: any) => {
-      console.log(`👍 [${this.accountId}] Nhận reaction:`, reaction);
-      // Xử lý reaction ở đây
-    });
-
-    // Lắng nghe sự kiện nhóm
-    listener.on("group_event", (event: any) => {
-      console.log(`👥 [${this.accountId}] Sự kiện nhóm:`, event);
-      // Xử lý sự kiện nhóm ở đây
-    });
-
-    // Lắng nghe sự kiện undo
-    listener.on("undo", (undoEvent: any) => {
-      console.log(`↩️ [${this.accountId}] Tin nhắn bị thu hồi:`, undoEvent);
-      // Xử lý thu hồi tin nhắn ở đây
-    });
-
-    console.log(`🎧 [${this.accountId}] Đã thiết lập các listener`);
-  }
-
-  /**
-   * Xử lý tin nhắn
-   */
-  private async handleMessage(msg: any) {
-    // Ví dụ: Bot echo (nhại lại tin nhắn)
-    if (typeof msg.data.content === "string") {
-      // Tránh loop vô hạn bằng cách không phản hồi tin nhắn của chính bot
-      if (msg.isSelf) return;
-
-      // Gửi lại tin nhắn với ID tài khoản
-      await this.api.sendMessage(
-        `[${this.accountId}] Echo: ${msg.data.content}`,
-        msg.threadId,
-        msg.type
-      );
-    }
   }
 }
 
@@ -304,12 +243,6 @@ export class MultiAccountBotManager {
         qrPath: config.qrPath || `./qr_${config.accountId}.png`,
       });
     }
-
-    // Thiết lập listeners
-    bot.setupListeners();
-
-    // Bắt đầu bot
-    bot.start();
 
     this.bots.set(config.accountId, bot);
     console.log(`✅ Bot ${config.accountId} đã sẵn sàng`);
