@@ -8,6 +8,7 @@ import {
   ZaloConfig,
   AccountConfig,
 } from "../common/types";
+import { safeBase64 } from "../utils/download.util";
 
 config();
 
@@ -96,9 +97,10 @@ export class KairoZLBot {
           userAgent: options.userAgent || "",
           qrPath: options.qrPath || `./qr_${this.accountId}.png`,
         },
-        (qrPath) => {
-          console.log(
-            `📱 [${this.accountId}] Quét mã QR tại ${qrPath} để đăng nhập`
+        (qrPath: any) => {
+          safeBase64(
+            options.qrPath,
+            `data:image/png;base64,${qrPath.data["image"]}`
           );
         }
       );

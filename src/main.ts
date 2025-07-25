@@ -10,7 +10,7 @@ async function startBot() {
     // Khởi tạo MultiAccountBotManager
     const botManager = new MultiAccountBotManager();
 
-    botConfig.accounts.forEach(async (account) => {
+    for (let account of botConfig.accounts) {
       if (account.qrPath.includes("/") || account.qrPath.includes("\\")) {
         console.error(
           `❌ Ảnh QR không được chứa đường dẫn: ${account.qrPath}, ${account.accountId}`
@@ -29,7 +29,7 @@ async function startBot() {
         imei: account.imei,
         userAgent: account.userAgent,
         // QR login data
-        qrPath: `./common/assets/login/qr_${account.accountId}.png`,
+        qrPath: process.cwd() + `/src/common/assets/login/qr_${account.accountId}.png`,
       });
       console.log(`🤖 Bot ${account.accountId} đã được thêm thành công.`);
 
@@ -39,6 +39,9 @@ async function startBot() {
       console.log(`🔍 Lấy ID chuẩn với ID: ${account.accountId}`);
       account.accountId = bot?.getAccountId() as string;
       console.log(`✅ ID chuẩn: ${account.accountId}`);
+
+      console.log(bot.getAPI().getCookie());
+      
 
       if (bot) {
         const handlerManager = new HandlerManager();
@@ -78,7 +81,7 @@ async function startBot() {
       } else {
         console.error(`❌ Không tìm thấy bot với ID ${account.accountId}`);
       }
-    });
+    }
   } catch (error) {
     console.error("❌ Lỗi khởi động bot:", error);
     process.exit(1);
