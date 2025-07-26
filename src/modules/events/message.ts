@@ -10,5 +10,7 @@ export default {
     tag: "core",
   },
 
-  handlerEvent: async (api: API, context: BotContext, event: any) => {},
+  handlerEvent: async (api: API, context: BotContext, event: any) => {
+    console.log(event);
+  },
 };

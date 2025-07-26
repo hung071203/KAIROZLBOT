@@ -42,7 +42,25 @@ async function startBot() {
     }
 
     //Khởi tạo database
-    const db = null
+    console.log("🗄️ Đang khởi tạo database connection...");
+    
+    // Ví dụ: Khởi tạo MongoDB connection
+    // const db = await connectToDatabase();
+    
+    // Ví dụ: Khởi tạo SQLite
+    // const db = new sqlite3.Database('./bot.db');
+    
+    // Ví dụ: Khởi tạo JSON database
+    // const db = new JsonDB('./data/database.json', true, false, '/');
+    
+    // Hiện tại để null, bạn có thể thay thế bằng database thực tế
+    const db: any = null; // TODO: Thay thế bằng database connection thực tế
+    
+    if (db) {
+      console.log("✅ Database đã được khởi tạo thành công");
+    } else {
+      console.log("⚠️ Database chưa được cấu hình, sử dụng chế độ no-database");
+    }
 
     // Khởi tạo MultiAccountBotManager
     const botManager = new MultiAccountBotManager();
@@ -78,9 +96,11 @@ async function startBot() {
       console.log(`✅ ID chuẩn: ${account.accountId}`);
 
       if (bot) {
-        // Khởi tạo và thiết lập ListenerManager (bao gồm HandlerManager)
-        const listenerManager = new ListenerManager(bot);
+        // Khởi tạo và thiết lập ListenerManager với database context
+        const listenerManager = new ListenerManager(bot, db, botConfig);
         await listenerManager.initialize();
+
+        console.log(`🔗 Bot context đã được tạo với database cho ${account.accountId}`);
 
         // Bắt đầu bot
         bot.start();

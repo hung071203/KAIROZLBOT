@@ -15,6 +15,6 @@ export default {
   },
 
   run: async (api: API, context: BotContext, event: Message, args: string[]) => {
-    console.log(event);
+    api.sendMessage('Chức năng này hiện đang được phát triển. Vui lòng thử lại sau.', event.threadId);
   },
 };

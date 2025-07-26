@@ -3,6 +3,8 @@ import * as path from "path";
 import {
   CommandModule,
   EventModule,
+  NoPrefixModule,
+  OnLoadModule,
   ReactionModule,
   ReplyModule,
   UndoModule,
@@ -14,15 +16,22 @@ export class HandlerManager {
   private events: Map<string, EventModule> = new Map();
   private reactions: Map<string, ReactionModule> = new Map();
   private undos: Map<string, UndoModule> = new Map();
+  private onLoads: Map<string, OnLoadModule> = new Map();
+  private noPrefix: Map<string, NoPrefixModule> = new Map();
+
   private commandPath: string = path.join(__dirname, "../modules/commands");
   private eventPath: string = path.join(__dirname, "../modules/events");
 
   constructor() {}
 
   async loadHandlers() {
-    const files = fs
-      .readdirSync(this.commandPath)
-      .filter((file) => file.endsWith(".js") && !file.endsWith(".d.ts"));
+    const files = fs.readdirSync(this.commandPath).filter((file) => {
+      return (
+        (file.endsWith(".js") || file.endsWith(".ts")) &&
+        !file.endsWith(".d.ts")
+      );
+    });
+
     for (const file of files) {
       const commandModulePath = path.join(this.commandPath, file);
       const imported = await import(commandModulePath);
@@ -35,27 +44,40 @@ export class HandlerManager {
         console.warn(`⚠️ Command "${commandName}" đã tồn tại, sẽ bị ghi đè.`);
       }
       this.commands.set(commandName, module);
+      console.log(`✅ Đã load được command: ${commandName}`);
 
       // Nếu có handlerUndo
       if ("handlerUndo" in module) {
         this.undos.set(commandName, module as UndoModule);
+        console.log(`✅ Đã load được undo handler: ${commandName}`);
       }
 
       if ("handlerReply" in module) {
         this.replies.set(commandName, module as ReplyModule);
+        console.log(`✅ Đã load được reply handler: ${commandName}`);
       }
 
       // Nếu có handlerReaction
       if ("handlerReaction" in module) {
         this.reactions.set(commandName, module as ReactionModule);
+        console.log(`✅ Đã load được reaction handler: ${commandName}`);
+      }
+
+      // Nếu có noPrefix
+      if ("noPrefix" in module) {
+        this.noPrefix.set(commandName, module as NoPrefixModule);
+        console.log(`✅ Đã load được noPrefix handler: ${commandName}`);
       }
     }
   }
 
   async loadEvents() {
-    const files = fs
-      .readdirSync(this.eventPath)
-      .filter((file) => file.endsWith(".js") && !file.endsWith(".d.ts"));
+    const files = fs.readdirSync(this.eventPath).filter((file) => {
+      return (
+        (file.endsWith(".js") || file.endsWith(".ts")) &&
+        !file.endsWith(".d.ts")
+      );
+    });
     for (const file of files) {
       const eventModulePath = path.join(this.eventPath, file);
       const imported = await import(eventModulePath);
@@ -69,6 +91,13 @@ export class HandlerManager {
       }
 
       this.events.set(eventName, module);
+      console.log(`✅ Đã load được event: ${eventName}`);
+
+      // Nếu có onLoad
+      if ("onLoad" in module) {
+        this.onLoads.set(eventName, module as OnLoadModule);
+        console.log(`✅ Đã load được onLoad handler: ${eventName}`);
+      }
     }
   }
 
@@ -80,6 +109,7 @@ export class HandlerManager {
     this.replies.clear();
     this.reactions.clear();
     this.undos.clear();
+    this.noPrefix.clear();
     await this.loadHandlers();
   }
 
@@ -88,6 +118,7 @@ export class HandlerManager {
    */
   async reloadEvents() {
     this.events.clear();
+    this.onLoads.clear();
     await this.loadEvents();
   }
 
@@ -125,5 +156,19 @@ export class HandlerManager {
    */
   getEvents(): Map<string, EventModule> {
     return this.events;
+  }
+
+  /**
+   * Get onLoad list
+   */
+  getOnLoads(): Map<string, OnLoadModule> {
+    return this.onLoads;
+  }
+
+  /**
+   * Get noPrefix list
+   */
+  getNoPrefix(): Map<string, NoPrefixModule> {
+    return this.noPrefix;
   }
 }

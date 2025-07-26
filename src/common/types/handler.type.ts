@@ -1,5 +1,6 @@
-import { API, Message } from "zca-js";
+import { API, Message, ThreadType } from "zca-js";
 import { RoleEnum } from "../enums";
+import { HandlerManager } from "../../handlers/handler.manager";
 
 export interface CommandConfig {
   name: string;
@@ -21,11 +22,22 @@ export interface EventConfig {
   tag: string;
 }
 
+export interface HandlerConfig {
+  name: string;
+  msgId: string; // ID của tin nhắn đã gửi
+  threadType: ThreadType;
+  threadId: string; // ID của nhóm hoặc cá nhân
+  quote?: Message; // Tin nhắn gốc nếu có
+  data?: any; // Dữ liệu bổ sung nếu cần
+}
+
 export interface BotContext {
   db?: any; // connection hoặc ORM
-  handlerReply?: any[]; // biến lưu tạm
-  handlerReaction?: any[]; // biến lưu tạm
-  handlerUndo?: any[]; // biến lưu tạm
+  config?: any; // cấu hình bot
+  handlerManager?: HandlerManager; // Quản lý các handler
+  handlerReply?: HandlerConfig[]; // biến lưu tạm
+  handlerReaction?: HandlerConfig[]; // biến lưu tạm
+  handlerUndo?: HandlerConfig[]; // biến lưu tạm
 }
 
 export interface CommandModule {
@@ -39,6 +51,7 @@ export interface CommandModule {
 }
 
 export interface ReplyModule {
+  config: CommandConfig;
   handlerReply: (
     api: API,
     context: BotContext,
@@ -53,9 +66,26 @@ export interface EventModule {
 }
 
 export interface ReactionModule {
+  config: CommandConfig;
   handlerReaction: (api: API, context: BotContext, event: any) => Promise<void>;
 }
 
 export interface UndoModule {
+  config: CommandConfig;
   handlerUndo: (api: API, context: BotContext, event: any) => Promise<void>;
+}
+
+export interface OnLoadModule {
+  config: EventConfig;
+  onLoad: (api: API, context: BotContext) => Promise<void>;
+}
+
+export interface NoPrefixModule {
+  config: CommandConfig;
+  noPrefix: (
+    api: API,
+    context: BotContext,
+    event: Message,
+    args: string[]
+  ) => Promise<void>;
 }
