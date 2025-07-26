@@ -1,10 +1,11 @@
+import "reflect-metadata";
 import { KairoZLBot, MultiAccountBotManager } from "./configs/zalo.config";
+import { initializeDatabase, closeDatabase } from "./configs/database.config";
 import { ListenerManager } from "./handlers/listener.manager";
 import botConfig from "./configs/config.json";
 import * as dotenv from "dotenv";
 import * as fs from "fs";
 import * as path from "path";
-import { BotContext } from "./common/types";
 
 dotenv.config();
 
@@ -43,20 +44,9 @@ async function startBot() {
 
     //Khởi tạo database
     console.log("🗄️ Đang khởi tạo database connection...");
+    const db = await initializeDatabase();
     
-    // Ví dụ: Khởi tạo MongoDB connection
-    // const db = await connectToDatabase();
-    
-    // Ví dụ: Khởi tạo SQLite
-    // const db = new sqlite3.Database('./bot.db');
-    
-    // Ví dụ: Khởi tạo JSON database
-    // const db = new JsonDB('./data/database.json', true, false, '/');
-    
-    // Hiện tại để null, bạn có thể thay thế bằng database thực tế
-    const db: any = null; // TODO: Thay thế bằng database connection thực tế
-    
-    if (db) {
+    if (db.isConnected) {
       console.log("✅ Database đã được khởi tạo thành công");
     } else {
       console.log("⚠️ Database chưa được cấu hình, sử dụng chế độ no-database");
@@ -115,5 +105,18 @@ async function startBot() {
     process.exit(1);
   }
 }
+
+// Xử lý thoát ứng dụng
+process.on('SIGINT', async () => {
+  console.log('\n🛑 Đang thoát ứng dụng...');
+  await closeDatabase();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  console.log('\n🛑 Đang thoát ứng dụng...');
+  await closeDatabase();
+  process.exit(0);
+});
 
 startBot();
