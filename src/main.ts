@@ -2,11 +2,44 @@ import { KairoZLBot, MultiAccountBotManager } from "./configs/zalo.config";
 import { HandlerManager } from "./handlers/handler.manager";
 import botConfig from "./configs/config.json";
 import * as dotenv from "dotenv";
+import * as fs from "fs";
+import * as path from "path";
 
 dotenv.config();
 
 async function startBot() {
   try {
+    // Kiểm tra và tạo thư mục lưu trữ QR nếu chưa tồn tại
+    const cacheDir = path.join(
+      process.cwd(),
+      "src",
+      "common",
+      "assets",
+      "cache"
+    );
+    if (!fs.existsSync(cacheDir)) {
+      fs.mkdirSync(cacheDir, { recursive: true });
+      console.log(`📁 Đã tạo thư mục cache: ${cacheDir}`);
+    } else {
+      console.log(
+        `📁 Thư mục cache đã tồn tại: ${cacheDir}, tiến hành xóa tất cả file bên trong`
+      );
+
+      const files = fs.readdirSync(cacheDir);
+      for (const file of files) {
+        const filePath = path.join(cacheDir, file);
+        const stat = fs.statSync(filePath);
+
+        if (stat.isFile()) {
+          fs.unlinkSync(filePath);
+          console.log(`🗑️ Đã xóa file: ${filePath}`);
+        } else if (stat.isDirectory()) {
+          fs.rmSync(filePath, { recursive: true, force: true });
+          console.log(`🗑️ Đã xóa thư mục con: ${filePath}`);
+        }
+      }
+    }
+
     // Khởi tạo MultiAccountBotManager
     const botManager = new MultiAccountBotManager();
 
@@ -29,7 +62,7 @@ async function startBot() {
         imei: account.imei,
         userAgent: account.userAgent,
         // QR login data
-        qrPath: process.cwd() + `/src/common/assets/login/qr_${account.accountId}.png`,
+        qrPath: cacheDir + `/qr_${account.accountId}.png`,
       });
       console.log(`🤖 Bot ${account.accountId} đã được thêm thành công.`);
 
@@ -39,9 +72,6 @@ async function startBot() {
       console.log(`🔍 Lấy ID chuẩn với ID: ${account.accountId}`);
       account.accountId = bot?.getAccountId() as string;
       console.log(`✅ ID chuẩn: ${account.accountId}`);
-
-      console.log(bot.getAPI().getCookie());
-      
 
       if (bot) {
         const handlerManager = new HandlerManager();
@@ -56,13 +86,10 @@ async function startBot() {
         // Lắng nghe tin nhắn
         listener.on("message", async (msg: any) => {
           console.log(`📩 Tin nhắn mới `, msg);
-          
         });
 
         // Lắng nghe sự kiện reaction
-        listener.on("reaction", (reaction: any) => {
-         
-        });
+        listener.on("reaction", (reaction: any) => {});
 
         // Lắng nghe sự kiện nhóm
         listener.on("group_event", (event: any) => {

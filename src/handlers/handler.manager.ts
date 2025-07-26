@@ -22,7 +22,7 @@ export class HandlerManager {
   async loadHandlers() {
     const files = fs
       .readdirSync(this.commandPath)
-      .filter((file) => file.endsWith(".ts") || file.endsWith(".js"));
+      .filter((file) => file.endsWith(".js") && !file.endsWith(".d.ts"));
     for (const file of files) {
       const commandModulePath = path.join(this.commandPath, file);
       const imported = await import(commandModulePath);
@@ -55,7 +55,7 @@ export class HandlerManager {
   async loadEvents() {
     const files = fs
       .readdirSync(this.eventPath)
-      .filter((file) => file.endsWith(".ts") || file.endsWith(".js"));
+      .filter((file) => file.endsWith(".js") && !file.endsWith(".d.ts"));
     for (const file of files) {
       const eventModulePath = path.join(this.eventPath, file);
       const imported = await import(eventModulePath);

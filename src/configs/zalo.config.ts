@@ -98,10 +98,23 @@ export class KairoZLBot {
           qrPath: options.qrPath || `./qr_${this.accountId}.png`,
         },
         (qrPath: any) => {
-          safeBase64(
-            options.qrPath,
-            `data:image/png;base64,${qrPath.data["image"]}`
-          );
+          if (qrPath?.type == 0) {
+            safeBase64(
+              options.qrPath,
+              `data:image/png;base64,${qrPath.data["image"]}`
+            );
+          } else if (qrPath?.type == 2) {
+            console.log(
+              `${qrPath.data["display_name"]} đã quét QR Code, đang đợi xác nhận...`
+            );
+          } else if (qrPath?.type == 4) {
+            console.log(
+              `Đăng nhập thành công! Hãy lưu thông tin đăng nhập để sử dụng sau này: `
+            );
+            console.log(JSON.stringify(qrPath.data, null, 2));
+          } else {
+            console.warn("Lỗi không xác định:", JSON.stringify(qrPath, null, 2));
+          }
         }
       );
 
