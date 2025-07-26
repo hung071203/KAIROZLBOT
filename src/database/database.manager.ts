@@ -1,9 +1,11 @@
 import { DataSource } from "typeorm";
-import { UserService } from "./services/user-service";
+import { ConfigService } from "./services/config-service";
+import { AccountService } from "./services/account-service";
 
 export class DatabaseManager {
   private dataSource: DataSource;
-  public user: UserService;
+  public config: ConfigService;
+  public account: AccountService;
 
   constructor(dataSource: DataSource) {
     this.dataSource = dataSource;
@@ -12,7 +14,8 @@ export class DatabaseManager {
 
   private initializeServices(): void {
     // Khởi tạo các service
-    this.user = new UserService();
+    this.config = new ConfigService();
+    this.account = new AccountService();
     
     // Có thể thêm các service khác ở đây
     // this.post = new PostService();
