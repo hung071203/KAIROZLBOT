@@ -11,6 +11,7 @@ export default {
     usage: "4k rep hình muốn upscale",
     countDown: 700,
     role: 3,
+    self: true, // Chỉ dành cho bot cá nhân
   },
 
   run: async (api: API, context: BotContext, event: Message, args: string[]) => {

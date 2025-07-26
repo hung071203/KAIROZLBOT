@@ -17,7 +17,7 @@
       "loginMethod": "cookie",
       "qrPath": "qr_bot1.png",
       "zaloConfig": {
-        "selfListen": false,
+        "selfListen": true,
         "checkUpdate": false,
         "logging": false
       },

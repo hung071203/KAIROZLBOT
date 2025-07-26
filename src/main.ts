@@ -1,9 +1,10 @@
 import { KairoZLBot, MultiAccountBotManager } from "./configs/zalo.config";
-import { HandlerManager } from "./handlers/handler.manager";
+import { ListenerManager } from "./handlers/listener.manager";
 import botConfig from "./configs/config.json";
 import * as dotenv from "dotenv";
 import * as fs from "fs";
 import * as path from "path";
+import { BotContext } from "./common/types";
 
 dotenv.config();
 
@@ -40,6 +41,9 @@ async function startBot() {
       }
     }
 
+    //Khởi tạo database
+    const db = null
+
     // Khởi tạo MultiAccountBotManager
     const botManager = new MultiAccountBotManager();
 
@@ -74,32 +78,9 @@ async function startBot() {
       console.log(`✅ ID chuẩn: ${account.accountId}`);
 
       if (bot) {
-        const handlerManager = new HandlerManager();
-        await handlerManager.loadHandlers();
-        await handlerManager.loadEvents();
-
-        // Thiết lập các listener cho bot
-        const api = bot.getAPI();
-
-        const { listener } = api;
-
-        // Lắng nghe tin nhắn
-        listener.on("message", async (msg: any) => {
-          console.log(`📩 Tin nhắn mới `, msg);
-        });
-
-        // Lắng nghe sự kiện reaction
-        listener.on("reaction", (reaction: any) => {});
-
-        // Lắng nghe sự kiện nhóm
-        listener.on("group_event", (event: any) => {
-          // Xử lý sự kiện nhóm ở đây
-        });
-
-        // Lắng nghe sự kiện undo
-        listener.on("undo", (undoEvent: any) => {
-          // Xử lý thu hồi tin nhắn ở đây
-        });
+        // Khởi tạo và thiết lập ListenerManager (bao gồm HandlerManager)
+        const listenerManager = new ListenerManager(bot);
+        await listenerManager.initialize();
 
         // Bắt đầu bot
         bot.start();

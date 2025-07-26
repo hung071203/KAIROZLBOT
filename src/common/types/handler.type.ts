@@ -1,4 +1,5 @@
 import { API, Message } from "zca-js";
+import { RoleEnum } from "../enums";
 
 export interface CommandConfig {
   name: string;
@@ -8,7 +9,8 @@ export interface CommandConfig {
   tag: string;
   usage: string;
   countDown: number;
-  role: number; // 0: all, 1: user, 2: admin, 3: owner
+  role: RoleEnum;
+  self: boolean; // lệnh chạy khi bot nhắn
 }
 
 export interface EventConfig {
@@ -20,8 +22,10 @@ export interface EventConfig {
 }
 
 export interface BotContext {
-  db: any; // connection hoặc ORM
-  tempStorage: Map<string, any>; // biến lưu tạm
+  db?: any; // connection hoặc ORM
+  handlerReply?: any[]; // biến lưu tạm
+  handlerReaction?: any[]; // biến lưu tạm
+  handlerUndo?: any[]; // biến lưu tạm
 }
 
 export interface CommandModule {
