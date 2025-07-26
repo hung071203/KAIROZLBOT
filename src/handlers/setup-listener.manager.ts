@@ -1,11 +1,12 @@
 import { API, Message, Reaction, Undo } from "zca-js";
-import { BotContext } from "../common/types";
+import { BotContext, CommandModule, NoPrefixModule } from "../common/types";
 import { HandlerManager } from "./handler.manager";
 
 export class SetupListeners {
   private api: API;
   private botContext: BotContext;
   private handlerManager: HandlerManager;
+  private cooldownMap: Map<string, number> = new Map();
 
   constructor(api: API, botContext: BotContext) {
     this.api = api;
@@ -33,10 +34,15 @@ export class SetupListeners {
     const content = event.data.content;
     let args: string[] = [];
     if (typeof content == "string") {
-      args = content.split(" ");
+      args = content.split(" ").filter((arg: string) => arg.trim() !== "");
     } else if (typeof content == "object") {
-      args = content.title.split(" ");
+      args = content.title
+        .split(" ")
+        .filter((arg: string) => arg.trim() !== "");
     }
+
+    const prefix = this.botContext.config?.prefix || "!";
+    if(args[0] && args[0].startsWith(prefix)) return;
 
     const handlerReply = this.botContext.handlerReply.find(
       (reply) =>
@@ -79,19 +85,79 @@ export class SetupListeners {
 
   async MessageListener(msg: Message) {
     const commandModules = this.handlerManager.getCommands();
+    const noPrefixModules = this.handlerManager.getNoPrefix();
+
+    const prefix = this.botContext.config?.prefix || "!";
     const threadId = msg.threadId;
     const content = msg.data.content;
+
     let args: string[] = [];
-    if (typeof content == "string") {
-      args = content.split(" ");
-    } else if (typeof content == "object") {
-      args = content.title.split(" ");
+    if (typeof content === "string") {
+      args = content.split(/\s+/).filter((arg) => arg.trim() !== "");
+    } else if (
+      typeof content === "object" &&
+      typeof content.title === "string"
+    ) {
+      args = content.title.split(/\s+/).filter((arg) => arg.trim() !== "");
     }
 
-    if (commandModules.has(args[0])) {
-      commandModules
-        .get(args[0])
-        .run(this.api, this.botContext, msg, args.slice(1));
+    if (args.length === 0) return;
+
+    if (args.length === 1 && args[0] === prefix) {
+      this.api.sendMessage(
+        `❌ Bạn chưa nhập tên lệnh sau dấu "${prefix}"`,
+        msg.threadId
+      );
+      return;
+    }
+
+    const firstWord = args[0];
+    const commandName = firstWord.startsWith(prefix)
+      ? firstWord.slice(prefix.length)
+      : firstWord;
+
+    const isPrefixCommand =
+      firstWord.startsWith(prefix) && commandModules.has(commandName);
+    const isNoPrefixCommand =
+      !firstWord.startsWith(prefix) && noPrefixModules.has(commandName);
+
+    if (isPrefixCommand) {
+      const module = commandModules.get(commandName)!;
+      await this.executeCommand(module, commandName, args.slice(1), msg, true);
+    } else if (isNoPrefixCommand) {
+      const module = noPrefixModules.get(commandName)!;
+      await this.executeCommand(module, commandName, args, msg, false);
+    }
+  }
+
+  private async executeCommand(
+    module: CommandModule | NoPrefixModule,
+    commandName: string,
+    args: string[],
+    msg: Message,
+    isPrefix: boolean
+  ) {
+    const threadId = msg.threadId;
+    const now = Date.now();
+    const cooldownKey = `${commandName}`;
+
+    const lastUsed = this.cooldownMap.get(cooldownKey) || 0;
+    const remaining = module.config.countDown * 1000 - (now - lastUsed);
+    if (remaining > 0) {
+      const seconds = Math.ceil(remaining / 1000);
+      this.api.sendMessage(
+        `⏳ Vui lòng chờ ${seconds}s trước khi dùng lại lệnh "${commandName}"`,
+        threadId
+      );
+      return;
+    }
+
+    this.cooldownMap.set(cooldownKey, now);
+
+    if (isPrefix && "run" in module) {
+      await module.run(this.api, this.botContext, msg, args);
+    } else if (!isPrefix && "noPrefix" in module) {
+      await module.noPrefix(this.api, this.botContext, msg, args);
     }
   }
 }

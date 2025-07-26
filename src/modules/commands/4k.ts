@@ -10,7 +10,7 @@ export default {
     description: "Upscale hình ảnh",
     tag: "AI",
     usage: "4k rep hình muốn upscale",
-    countDown: 700,
+    countDown: 1,
     role: RoleEnum.ALL,
     self: true, // Chỉ dành cho bot cá nhân
   },
