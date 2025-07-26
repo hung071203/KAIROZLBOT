@@ -1,11 +1,13 @@
 import "reflect-metadata";
 import { KairoZLBot, MultiAccountBotManager } from "./configs/zalo.config";
 import { initializeDatabase, closeDatabase } from "./configs/database.config";
+import { DatabaseManager } from "./database/database.manager";
 import { ListenerManager } from "./handlers/listener.manager";
-import botConfig from "./configs/config.json";
+import accounts from "./configs/account.json";
 import * as dotenv from "dotenv";
 import * as fs from "fs";
 import * as path from "path";
+import { AppConfig } from "./configs/app.config";
 
 dotenv.config();
 
@@ -44,7 +46,7 @@ async function startBot() {
 
     //Khởi tạo database
     console.log("🗄️ Đang khởi tạo database connection...");
-    const db = await initializeDatabase();
+    const db: DatabaseManager = await initializeDatabase();
     
     if (db.isConnected) {
       console.log("✅ Database đã được khởi tạo thành công");
@@ -52,10 +54,18 @@ async function startBot() {
       console.log("⚠️ Database chưa được cấu hình, sử dụng chế độ no-database");
     }
 
+    // Khởi tạo AppConfig
+    const botConfig = new AppConfig(db);
+    await botConfig.initialize();
+    console.log("✅ AppConfig đã được khởi tạo thành công");
+    // Lấy tất cả cấu hình từ AppConfig
+    const allConfigs = await botConfig.getAllConfigs();
+    console.log("📄 Đã lấy tất cả cấu hình:", allConfigs);
+
     // Khởi tạo MultiAccountBotManager
     const botManager = new MultiAccountBotManager();
 
-    for (let account of botConfig.accounts) {
+    for (let account of accounts) {
       if (account.qrPath.includes("/") || account.qrPath.includes("\\")) {
         console.error(
           `❌ Ảnh QR không được chứa đường dẫn: ${account.qrPath}, ${account.accountId}`
@@ -87,7 +97,7 @@ async function startBot() {
 
       if (bot) {
         // Khởi tạo và thiết lập ListenerManager với database context
-        const listenerManager = new ListenerManager(bot, db, botConfig);
+        const listenerManager = new ListenerManager(bot, db, allConfigs);
         await listenerManager.initialize();
 
         console.log(`🔗 Bot context đã được tạo với database cho ${account.accountId}`);

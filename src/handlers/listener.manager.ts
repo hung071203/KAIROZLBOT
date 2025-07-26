@@ -3,13 +3,14 @@ import { HandlerManager } from "./handler.manager";
 import { BotContext } from "../common/types";
 import { GroupEvent, Message, Reaction, Undo } from "zca-js";
 import { SetupListeners } from "./setup-listener.manager";
+import { DatabaseManager } from "../database";
 
 export class ListenerManager {
   private bot: KairoZLBot;
   private handlerManager: HandlerManager;
   private botContext: BotContext;
 
-  constructor(bot: KairoZLBot, database?: any, config?: any) {
+  constructor(bot: KairoZLBot, database?: DatabaseManager, config?: any) {
     this.bot = bot;
     this.handlerManager = new HandlerManager();
 
