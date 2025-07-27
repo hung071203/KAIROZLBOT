@@ -2,8 +2,5 @@
   "botName": "ZCA",
   "prefix": "!",
   "admins": ["10001", "10003"],
-  "logging": {
-    "enabled": true,
-    "level": ["info", "warn", "error", "debug"]
-  }
+  "logging": ["info", "warn", "error", "debug"]
 }
