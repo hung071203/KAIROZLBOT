@@ -2,7 +2,10 @@
   {
     "accountId": "bot1",
     "loginMethod": "cookie",
+    "isActive": true,
     "qrPath": "qr_bot1.png",
+    "imei": "8445ba5f-d806-48c5-a8aa-5397773c3613-d2ad6785d256851dd366703bdc61aa61",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0",
     "zaloConfig": {
       "selfListen": true,
       "checkUpdate": false,
@@ -158,9 +161,6 @@
         "lastAccessed": "2025-07-26T07:28:33.154Z",
         "sameSite": "lax"
       }
-    ],
-    "imei": "8445ba5f-d806-48c5-a8aa-5397773c3613-d2ad6785d256851dd366703bdc61aa61",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0",
-    "isActive": true
+    ]
   }
 ]

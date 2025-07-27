@@ -341,122 +341,201 @@ class AccountCLI {
     }
   }
 
-  // Sửa tài khoản
+  // Sửa tài khoản (đọc từ database và lưu vào database)
   async editAccount(): Promise<void> {
-    const accounts = this.readAccountsFromFile();
-    
-    if (accounts.length === 0) {
-      console.log('📋 Không có tài khoản nào để sửa.');
-      return;
+    try {
+      console.log('\n=== SỬA TÀI KHOẢN ===');
+      console.log('🔄 Đang lấy dữ liệu từ database...');
+      
+      // Lấy tất cả tài khoản từ database
+      const dbAccounts = await this.accountService.find();
+      
+      if (dbAccounts.length === 0) {
+        console.log('📋 Không có tài khoản nào trong database để sửa.');
+        console.log('💡 Bạn có thể tạo file mẫu (chọn 1) hoặc thêm tài khoản mới (chọn 3).');
+        return;
+      }
+
+      // Hiển thị danh sách tài khoản từ database
+      console.log('\n=== DANH SÁCH TÀI KHOẢN ===');
+      dbAccounts.forEach((account, index) => {
+        console.log(`${index + 1}. Account ID: ${account.accountId} - Phương thức: ${account.loginMethod} - Trạng thái: ${account.isActive ? '🟢 Hoạt động' : '🔴 Tắt'}`);
+      });
+      
+      const indexStr = await this.question('\nChọn số thứ tự tài khoản cần sửa: ');
+      const index = parseInt(indexStr) - 1;
+      
+      if (index < 0 || index >= dbAccounts.length) {
+        console.log('❌ Số thứ tự không hợp lệ!');
+        return;
+      }
+
+      const account = dbAccounts[index];
+      console.log(`\nĐang sửa tài khoản: ${account.accountId}`);
+
+      // Parse dữ liệu hiện tại
+      const currentData = this.accountService.parseAccountData(account);
+      let hasChanges = false;
+
+      // Sửa phương thức đăng nhập
+      const changeLoginMethod = await this.question('Thay đổi phương thức đăng nhập? (y/n): ');
+      if (changeLoginMethod.toLowerCase() === 'y') {
+        const loginMethodStr = await this.question('Chọn phương thức (1: cookie, 2: qr): ');
+        const newLoginMethod = loginMethodStr === '1' ? 'cookie' : 'qr';
+        if (newLoginMethod !== account.loginMethod) {
+          currentData.loginMethod = newLoginMethod;
+          hasChanges = true;
+        }
+      }
+
+      // Sửa QR Path
+      const changeQrPath = await this.question('Thay đổi QR Path? (y/n): ');
+      if (changeQrPath.toLowerCase() === 'y') {
+        const qrPath = await this.question(`QR Path hiện tại: ${currentData.qrPath || 'N/A'}\nNhập QR Path mới: `);
+        const newQrPath = qrPath.trim() || undefined;
+        if (newQrPath !== currentData.qrPath) {
+          currentData.qrPath = newQrPath;
+          hasChanges = true;
+        }
+      }
+
+      // Sửa IMEI
+      const changeImei = await this.question('Thay đổi IMEI? (y/n): ');
+      if (changeImei.toLowerCase() === 'y') {
+        const imei = await this.question(`IMEI hiện tại: ${currentData.imei || 'N/A'}\nNhập IMEI mới: `);
+        const newImei = imei.trim() || undefined;
+        if (newImei !== currentData.imei) {
+          currentData.imei = newImei;
+          hasChanges = true;
+        }
+      }
+
+      // Sửa User Agent
+      const changeUserAgent = await this.question('Thay đổi User Agent? (y/n): ');
+      if (changeUserAgent.toLowerCase() === 'y') {
+        const userAgent = await this.question(`User Agent hiện tại: ${currentData.userAgent || 'N/A'}\nNhập User Agent mới: `);
+        const newUserAgent = userAgent.trim() || undefined;
+        if (newUserAgent !== currentData.userAgent) {
+          currentData.userAgent = newUserAgent;
+          hasChanges = true;
+        }
+      }
+
+      if (hasChanges) {
+        // Cập nhật trong database
+        await this.accountService.createOrUpdateAccount(currentData);
+        console.log('✅ Cập nhật tài khoản trong database thành công!');
+        
+        // Đồng bộ database về file để backup
+        console.log('🔄 Đang đồng bộ database về file...');
+        await this.syncDatabaseToFile();
+      } else {
+        console.log('ℹ️  Không có thay đổi nào được thực hiện.');
+      }
+      
+    } catch (error) {
+      console.error('❌ Lỗi khi sửa tài khoản:', error);
     }
-
-    console.log('\n=== SỬA TÀI KHOẢN ===');
-    await this.showAllAccounts();
-    
-    const indexStr = await this.question('\nChọn số thứ tự tài khoản cần sửa: ');
-    const index = parseInt(indexStr) - 1;
-    
-    if (index < 0 || index >= accounts.length) {
-      console.log('❌ Số thứ tự không hợp lệ!');
-      return;
-    }
-
-    const account = accounts[index];
-    console.log(`\nĐang sửa tài khoản: ${account.accountId}`);
-
-    // Sửa phương thức đăng nhập
-    const changeLoginMethod = await this.question('Thay đổi phương thức đăng nhập? (y/n): ');
-    if (changeLoginMethod.toLowerCase() === 'y') {
-      const loginMethodStr = await this.question('Chọn phương thức (1: cookie, 2: qr): ');
-      account.loginMethod = loginMethodStr === '1' ? 'cookie' : 'qr';
-    }
-
-    // Sửa QR Path
-    const changeQrPath = await this.question('Thay đổi QR Path? (y/n): ');
-    if (changeQrPath.toLowerCase() === 'y') {
-      const qrPath = await this.question(`QR Path hiện tại: ${account.qrPath || 'N/A'}\nNhập QR Path mới: `);
-      account.qrPath = qrPath.trim() || undefined;
-    }
-
-    // Sửa IMEI
-    const changeImei = await this.question('Thay đổi IMEI? (y/n): ');
-    if (changeImei.toLowerCase() === 'y') {
-      const imei = await this.question(`IMEI hiện tại: ${account.imei || 'N/A'}\nNhập IMEI mới: `);
-      account.imei = imei.trim() || undefined;
-    }
-
-    // Sửa User Agent
-    const changeUserAgent = await this.question('Thay đổi User Agent? (y/n): ');
-    if (changeUserAgent.toLowerCase() === 'y') {
-      const userAgent = await this.question(`User Agent hiện tại: ${account.userAgent || 'N/A'}\nNhập User Agent mới: `);
-      account.userAgent = userAgent.trim() || undefined;
-    }
-
-    this.writeAccountsToFile(accounts);
-    console.log('✅ Cập nhật tài khoản thành công!');
   }
 
-  // Xóa tài khoản
+  // Xóa tài khoản (đọc từ database và xóa trong database)
   async deleteAccount(): Promise<void> {
-    const accounts = this.readAccountsFromFile();
-    
-    if (accounts.length === 0) {
-      console.log('📋 Không có tài khoản nào để xóa.');
-      return;
-    }
+    try {
+      console.log('\n=== XÓA TÀI KHOẢN ===');
+      console.log('🔄 Đang lấy dữ liệu từ database...');
+      
+      // Lấy tất cả tài khoản từ database
+      const dbAccounts = await this.accountService.find();
+      
+      if (dbAccounts.length === 0) {
+        console.log('📋 Không có tài khoản nào trong database để xóa.');
+        console.log('💡 Bạn có thể tạo file mẫu (chọn 1) hoặc thêm tài khoản mới (chọn 3).');
+        return;
+      }
 
-    console.log('\n=== XÓA TÀI KHOẢN ===');
-    await this.showAllAccounts();
-    
-    const indexStr = await this.question('\nChọn số thứ tự tài khoản cần xóa: ');
-    const index = parseInt(indexStr) - 1;
-    
-    if (index < 0 || index >= accounts.length) {
-      console.log('❌ Số thứ tự không hợp lệ!');
-      return;
-    }
+      // Hiển thị danh sách tài khoản từ database
+      console.log('\n=== DANH SÁCH TÀI KHOẢN ===');
+      dbAccounts.forEach((account, index) => {
+        console.log(`${index + 1}. Account ID: ${account.accountId} - Trạng thái: ${account.isActive ? '🟢 Hoạt động' : '🔴 Tắt'}`);
+      });
+      
+      const indexStr = await this.question('\nChọn số thứ tự tài khoản cần xóa: ');
+      const index = parseInt(indexStr) - 1;
+      
+      if (index < 0 || index >= dbAccounts.length) {
+        console.log('❌ Số thứ tự không hợp lệ!');
+        return;
+      }
 
-    const account = accounts[index];
-    const confirm = await this.question(`Bạn có chắc muốn xóa tài khoản "${account.accountId}"? (y/n): `);
-    
-    if (confirm.toLowerCase() === 'y') {
-      accounts.splice(index, 1);
-      this.writeAccountsToFile(accounts);
-      console.log('✅ Xóa tài khoản thành công!');
-    } else {
-      console.log('❌ Hủy xóa tài khoản.');
+      const account = dbAccounts[index];
+      const confirm = await this.question(`Bạn có chắc muốn xóa tài khoản "${account.accountId}" khỏi database? (y/n): `);
+      
+      if (confirm.toLowerCase() === 'y') {
+        // Xóa trong database
+        await this.accountService.deleteAccount(account.accountId);
+        console.log('✅ Xóa tài khoản khỏi database thành công!');
+        
+        // Đồng bộ database về file để backup
+        console.log('🔄 Đang đồng bộ database về file...');
+        await this.syncDatabaseToFile();
+      } else {
+        console.log('❌ Hủy xóa tài khoản.');
+      }
+      
+    } catch (error) {
+      console.error('❌ Lỗi khi xóa tài khoản:', error);
     }
   }
 
-  // Bật/Tắt tài khoản
+  // Bật/Tắt tài khoản (đọc từ database và lưu vào database)
   async toggleAccount(): Promise<void> {
-    const accounts = this.accountService.findAll();
-    
-    if (accounts.length === 0) {
-      console.log('📋 Không có tài khoản nào để thay đổi trạng thái.');
-      return;
-    }
+    try {
+      console.log('\n=== BẬT/TẮT TÀI KHOẢN ===');
+      console.log('🔄 Đang lấy dữ liệu từ database...');
+      
+      // Lấy tất cả tài khoản từ database
+      const dbAccounts = await this.accountService.find();
+      
+      if (dbAccounts.length === 0) {
+        console.log('📋 Không có tài khoản nào trong database để thay đổi trạng thái.');
+        console.log('💡 Bạn có thể tạo file mẫu (chọn 1) hoặc thêm tài khoản mới (chọn 3).');
+        return;
+      }
 
-    console.log('\n=== BẬT/TẮT TÀI KHOẢN ===');
-    await this.showAllAccounts();
-    
-    const indexStr = await this.question('\nChọn số thứ tự tài khoản cần thay đổi trạng thái: ');
-    const index = parseInt(indexStr) - 1;
-    
-    if (index < 0 || index >= accounts.length) {
-      console.log('❌ Số thứ tự không hợp lệ!');
-      return;
-    }
+      // Hiển thị danh sách tài khoản từ database
+      console.log('\n=== DANH SÁCH TÀI KHOẢN ===');
+      dbAccounts.forEach((account, index) => {
+        console.log(`${index + 1}. Account ID: ${account.accountId} - Trạng thái: ${account.isActive ? '🟢 Hoạt động' : '🔴 Tắt'}`);
+      });
+      
+      const indexStr = await this.question('\nChọn số thứ tự tài khoản cần thay đổi trạng thái: ');
+      const index = parseInt(indexStr) - 1;
+      
+      if (index < 0 || index >= dbAccounts.length) {
+        console.log('❌ Số thứ tự không hợp lệ!');
+        return;
+      }
 
-    const account = accounts[index];
-    const currentStatus = account.isActive !== false;
-    const newStatus = !currentStatus;
-    
-    account.isActive = newStatus;
-    this.writeAccountsToFile(accounts);
-    this.accountService.update({ accountId: account.accountId }, { isActive: newStatus });
-    
-    console.log(`✅ Đã ${newStatus ? 'bật' : 'tắt'} tài khoản "${account.accountId}"`);
+      const account = dbAccounts[index];
+      const currentStatus = account.isActive;
+      const newStatus = !currentStatus;
+      
+      // Cập nhật trạng thái trong database
+      if (newStatus) {
+        await this.accountService.activateAccount(account.accountId);
+      } else {
+        await this.accountService.deactivateAccount(account.accountId);
+      }
+      
+      console.log(`✅ Đã ${newStatus ? 'bật' : 'tắt'} tài khoản "${account.accountId}" trong database`);
+      
+      // Đồng bộ database về file để backup
+      console.log('🔄 Đang đồng bộ database về file...');
+      await this.syncDatabaseToFile();
+      
+    } catch (error) {
+      console.error('❌ Lỗi khi thay đổi trạng thái tài khoản:', error);
+    }
   }
 
   // Đồng bộ với database (file → database)
