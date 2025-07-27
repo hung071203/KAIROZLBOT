@@ -27,10 +27,6 @@ export class Account {
   @Column({ type: "text", nullable: true })
   userAgent: string; // User Agent
 
-  // QR login data
-  @Column({ nullable: true })
-  qrPath: string; // Đường dẫn lưu QR code
-
   @Column({ default: true })
   isActive: boolean; // Trạng thái hoạt động
 

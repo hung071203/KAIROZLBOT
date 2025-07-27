@@ -68,18 +68,7 @@ async function startBot() {
 
     for (let account of accounts) {
       let cookie: any
-      if (account.loginMethod === "qr") {
-        if (
-          !account.qrPath ||
-          account.qrPath.includes("/") ||
-          account.qrPath.includes("\\")
-        ) {
-          console.error(
-            `❌ Ảnh QR không được chứa đường dẫn: ${account.qrPath}, ${account.accountId}`
-          );
-          continue;
-        }
-      } else if (account.loginMethod === "cookie") {
+      if (account.loginMethod === "cookie") {
         try {
           cookie = JSON.parse(account.cookie);
         } catch (error) {

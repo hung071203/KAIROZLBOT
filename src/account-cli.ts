@@ -174,11 +174,6 @@ class AccountCLI {
           isActive: account.isActive
         };
 
-        // Parse các trường JSON
-        if (account.qrPath) {
-          accountData.qrPath = account.qrPath;
-        }
-
         if (account.imei) {
           accountData.imei = account.imei;
         }
@@ -501,11 +496,6 @@ class AccountCLI {
           loginMethod: account.loginMethod,
           isActive: account.isActive
         };
-
-        // Parse các trường JSON
-        if (account.qrPath) {
-          accountData.qrPath = account.qrPath;
-        }
 
         if (account.imei) {
           accountData.imei = account.imei;
