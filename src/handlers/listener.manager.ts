@@ -1,4 +1,4 @@
-import { KairoZLBot } from "../configs/zalo.config";
+import { KairoZLBot, MultiAccountBotManager } from "../configs/zalo.config";
 import { HandlerManager } from "./handler.manager";
 import { BotContext } from "../common/types";
 import { GroupEvent, Message, Reaction, Undo } from "zca-js";
@@ -10,7 +10,7 @@ export class ListenerManager {
   private handlerManager: HandlerManager;
   private botContext: BotContext;
 
-  constructor(bot: KairoZLBot, database?: DatabaseManager, config?: any) {
+  constructor(bot: KairoZLBot, database?: DatabaseManager, config?: any, botManager?: MultiAccountBotManager) {
     this.bot = bot;
     this.handlerManager = new HandlerManager();
 
@@ -18,6 +18,7 @@ export class ListenerManager {
     this.botContext = {
       db: database,
       config,
+      botManager,
       handlerReply: [],
       handlerReaction: [],
       handlerUndo: [],

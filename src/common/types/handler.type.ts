@@ -2,6 +2,7 @@ import { API, Message, ThreadType } from "zca-js";
 import { RoleEnum } from "../enums";
 import { HandlerManager } from "../../handlers/handler.manager";
 import { DatabaseManager } from "../../database";
+import { MultiAccountBotManager } from "../../configs";
 
 export interface CommandConfig {
   name: string;
@@ -35,6 +36,7 @@ export interface HandlerConfig {
 export interface BotContext {
   db?: DatabaseManager; // connection hoặc ORM
   config?: any; // cấu hình bot
+  botManager?: MultiAccountBotManager; // Quản lý nhiều bot
   handlerManager?: HandlerManager; // Quản lý các handler
   handlerReply?: HandlerConfig[]; // biến lưu tạm
   handlerReaction?: HandlerConfig[]; // biến lưu tạm

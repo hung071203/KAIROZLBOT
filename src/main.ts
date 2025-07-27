@@ -101,7 +101,7 @@ async function startBot() {
 
       if (bot) {
         // Khởi tạo và thiết lập ListenerManager với database context
-        const listenerManager = new ListenerManager(bot, db, allConfigs);
+        const listenerManager = new ListenerManager(bot, db, allConfigs, botManager);
         await listenerManager.initialize();
 
         Logger.info(
