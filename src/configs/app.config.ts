@@ -25,26 +25,36 @@ export class AppConfig {
 
     let config: typeof defaultConfig;
 
-    // Kiểm tra file tồn tại
+    // Đọc file nếu tồn tại
     if (fs.existsSync(this.configFilePath)) {
       const fileContent = fs.readFileSync(this.configFilePath, "utf-8");
       config = JSON.parse(fileContent);
       console.log(`📄 Đã đọc file cấu hình: ${this.configFilePath}`);
     } else {
       config = defaultConfig;
-
       fs.writeFileSync(this.configFilePath, JSON.stringify(config, null, 2));
       console.log(`📄 Đã tạo file cấu hình mới: ${this.configFilePath}`);
     }
 
-    // Lưu vào DB
-    type ConfigKey = keyof typeof config;
-    for (const key of Object.keys(config) as ConfigKey[]) {
-      const value = config[key];
+    const fileKeys = Object.keys(config);
+    const dbConfig = await this.db.config.getAllConfigs();
+    const dbKeys = Object.keys(dbConfig);
+
+    // 🔁 Thêm hoặc cập nhật từ file vào DB
+    for (const key of fileKeys) {
+      const value = config[key as keyof typeof config];
       await this.db.config.setConfig(
         key,
         typeof value === "string" ? value : JSON.stringify(value)
       );
+    }
+
+    // 🗑️ Xóa key trong DB nếu không có trong file
+    for (const key of dbKeys) {
+      if (!fileKeys.includes(key)) {
+        await this.db.config.deleteConfig(key);
+        console.log(`🗑️ Đã xóa config không còn dùng trong file: ${key}`);
+      }
     }
   }
 
