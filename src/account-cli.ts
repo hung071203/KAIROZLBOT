@@ -71,12 +71,11 @@ class AccountCLI {
     console.log('\n=== QUẢN LÝ TÀI KHOẢN ZALO BOT ===');
     console.log('1. Tạo file mẫu'); 
     console.log('2. Xem tất cả tài khoản'); 
-    console.log('3. Thêm tài khoản mới');
-    console.log('4. Sửa tài khoản');
-    console.log('5. Xóa tài khoản');
-    console.log('6. Bật/Tắt tài khoản');
-    console.log('7. Đồng bộ file → database');
-    console.log('8. Đồng bộ database → file');
+    console.log('3. Thêm/Cập nhật tài khoản');
+    console.log('4. Xóa tài khoản');
+    console.log('5. Bật/Tắt tài khoản');
+    console.log('6. Đồng bộ file → database');
+    console.log('7. Đồng bộ database → file');
     console.log('0. Thoát');
     console.log('================================');
   }
@@ -267,10 +266,10 @@ class AccountCLI {
     }
   }
 
-  // Thêm tài khoản mới (đọc từ file account.json và lưu vào database)
+  // Thêm/Cập nhật tài khoản (đọc từ file account.json và lưu vào database)
   async addAccount(): Promise<void> {
     try {
-      console.log('\n=== THÊM TÀI KHOẢN MỚI ===');
+      console.log('\n=== THÊM/CẬP NHẬT TÀI KHOẢN ===');
       console.log('🔄 Đang đọc dữ liệu từ file account.json...');
       
       // Đọc tài khoản từ file
@@ -287,7 +286,7 @@ class AccountCLI {
       const existingAccountIds = dbAccounts.map(acc => acc.accountId);
 
       let addedCount = 0;
-      let skippedCount = 0;
+      let updatedCount = 0;
       
       console.log('\n🔄 Đang xử lý từng tài khoản...');
       
@@ -295,12 +294,14 @@ class AccountCLI {
         try {
           // Kiểm tra tài khoản đã tồn tại trong database chưa
           if (existingAccountIds.includes(accountData.accountId)) {
-            console.log(`⚠️  Bỏ qua "${accountData.accountId}" - đã tồn tại trong database`);
-            skippedCount++;
-            continue;
+            console.log(`🔄 Cập nhật tài khoản "${accountData.accountId}"`);
+            updatedCount++;
+          } else {
+            console.log(`➕ Thêm mới tài khoản "${accountData.accountId}"`);
+            addedCount++;
           }
 
-          // Thêm tài khoản vào database (AccountService sẽ tự stringify)
+          // Thêm/Cập nhật tài khoản vào database (AccountService sẽ tự stringify)
           await this.accountService.createOrUpdateAccount({
             accountId: accountData.accountId,
             loginMethod: accountData.loginMethod,
@@ -319,122 +320,24 @@ class AccountCLI {
             await this.accountService.activateAccount(accountData.accountId);
           }
           
-          console.log(`✅ Thêm thành công: "${accountData.accountId}"`);
-          addedCount++;
+          console.log(`✅ Xử lý thành công: "${accountData.accountId}"`);
           
         } catch (error) {
-          console.error(`❌ Lỗi khi thêm tài khoản "${accountData.accountId}":`, error);
+          console.error(`❌ Lỗi khi xử lý tài khoản "${accountData.accountId}":`, error);
         }
       }
       
-      console.log('\n=== KẾT QUẢ THÊM TÀI KHOẢN ===');
-      console.log(`✅ Đã thêm: ${addedCount} tài khoản`);
-      console.log(`⚠️  Đã bỏ qua: ${skippedCount} tài khoản (đã tồn tại)`);
-      console.log(`📊 Tổng xử lý: ${addedCount + skippedCount}/${accounts.length} tài khoản`);
+      console.log('\n=== KẾT QUẢ XỬ LÝ TÀI KHOẢN ===');
+      console.log(`➕ Đã thêm mới: ${addedCount} tài khoản`);
+      console.log(`🔄 Đã cập nhật: ${updatedCount} tài khoản`);
+      console.log(`📊 Tổng xử lý: ${addedCount + updatedCount}/${accounts.length} tài khoản`);
       
-      if (addedCount > 0) {
-        console.log('💾 Tất cả tài khoản mới đã được lưu vào database.');
+      if (addedCount > 0 || updatedCount > 0) {
+        console.log('💾 Tất cả tài khoản đã được đồng bộ vào database.');
       }
       
     } catch (error) {
-      console.error('❌ Lỗi khi thêm tài khoản:', error);
-    }
-  }
-
-  // Sửa tài khoản (đọc từ database và lưu vào database)
-  async editAccount(): Promise<void> {
-    try {
-      console.log('\n=== SỬA TÀI KHOẢN ===');
-      console.log('🔄 Đang lấy dữ liệu từ database...');
-      
-      // Lấy tất cả tài khoản từ database
-      const dbAccounts = await this.accountService.find();
-      
-      if (dbAccounts.length === 0) {
-        console.log('📋 Không có tài khoản nào trong database để sửa.');
-        console.log('💡 Bạn có thể tạo file mẫu (chọn 1) hoặc thêm tài khoản mới (chọn 3).');
-        return;
-      }
-
-      // Hiển thị danh sách tài khoản từ database
-      console.log('\n=== DANH SÁCH TÀI KHOẢN ===');
-      dbAccounts.forEach((account, index) => {
-        console.log(`${index + 1}. Account ID: ${account.accountId} - Phương thức: ${account.loginMethod} - Trạng thái: ${account.isActive ? '🟢 Hoạt động' : '🔴 Tắt'}`);
-      });
-      
-      const indexStr = await this.question('\nChọn số thứ tự tài khoản cần sửa: ');
-      const index = parseInt(indexStr) - 1;
-      
-      if (index < 0 || index >= dbAccounts.length) {
-        console.log('❌ Số thứ tự không hợp lệ!');
-        return;
-      }
-
-      const account = dbAccounts[index];
-      console.log(`\nĐang sửa tài khoản: ${account.accountId}`);
-
-      // Parse dữ liệu hiện tại
-      const currentData = this.accountService.parseAccountData(account);
-      let hasChanges = false;
-
-      // Sửa phương thức đăng nhập
-      const changeLoginMethod = await this.question('Thay đổi phương thức đăng nhập? (y/n): ');
-      if (changeLoginMethod.toLowerCase() === 'y') {
-        const loginMethodStr = await this.question('Chọn phương thức (1: cookie, 2: qr): ');
-        const newLoginMethod = loginMethodStr === '1' ? 'cookie' : 'qr';
-        if (newLoginMethod !== account.loginMethod) {
-          currentData.loginMethod = newLoginMethod;
-          hasChanges = true;
-        }
-      }
-
-      // Sửa QR Path
-      const changeQrPath = await this.question('Thay đổi QR Path? (y/n): ');
-      if (changeQrPath.toLowerCase() === 'y') {
-        const qrPath = await this.question(`QR Path hiện tại: ${currentData.qrPath || 'N/A'}\nNhập QR Path mới: `);
-        const newQrPath = qrPath.trim() || undefined;
-        if (newQrPath !== currentData.qrPath) {
-          currentData.qrPath = newQrPath;
-          hasChanges = true;
-        }
-      }
-
-      // Sửa IMEI
-      const changeImei = await this.question('Thay đổi IMEI? (y/n): ');
-      if (changeImei.toLowerCase() === 'y') {
-        const imei = await this.question(`IMEI hiện tại: ${currentData.imei || 'N/A'}\nNhập IMEI mới: `);
-        const newImei = imei.trim() || undefined;
-        if (newImei !== currentData.imei) {
-          currentData.imei = newImei;
-          hasChanges = true;
-        }
-      }
-
-      // Sửa User Agent
-      const changeUserAgent = await this.question('Thay đổi User Agent? (y/n): ');
-      if (changeUserAgent.toLowerCase() === 'y') {
-        const userAgent = await this.question(`User Agent hiện tại: ${currentData.userAgent || 'N/A'}\nNhập User Agent mới: `);
-        const newUserAgent = userAgent.trim() || undefined;
-        if (newUserAgent !== currentData.userAgent) {
-          currentData.userAgent = newUserAgent;
-          hasChanges = true;
-        }
-      }
-
-      if (hasChanges) {
-        // Cập nhật trong database
-        await this.accountService.createOrUpdateAccount(currentData);
-        console.log('✅ Cập nhật tài khoản trong database thành công!');
-        
-        // Đồng bộ database về file để backup
-        console.log('🔄 Đang đồng bộ database về file...');
-        await this.syncDatabaseToFile();
-      } else {
-        console.log('ℹ️  Không có thay đổi nào được thực hiện.');
-      }
-      
-    } catch (error) {
-      console.error('❌ Lỗi khi sửa tài khoản:', error);
+      console.error('❌ Lỗi khi thêm/cập nhật tài khoản:', error);
     }
   }
 
@@ -655,7 +558,7 @@ class AccountCLI {
     
     while (true) {
       this.showMenu();
-      const choice = await this.question('Chọn chức năng (0-8): ');
+      const choice = await this.question('Chọn chức năng (0-7): ');
       
       switch (choice.trim()) {
         case '1':
@@ -668,18 +571,15 @@ class AccountCLI {
           await this.addAccount();
           break;
         case '4':
-          await this.editAccount();
-          break;
-        case '5':
           await this.deleteAccount();
           break;
-        case '6':
+        case '5':
           await this.toggleAccount();
           break;
-        case '7':
+        case '6':
           await this.syncFileToDatabase();
           break;
-        case '8':
+        case '7':
           await this.syncDatabaseToFile();
           break;
         case '0':
