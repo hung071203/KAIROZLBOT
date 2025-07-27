@@ -9,6 +9,7 @@ import {
   ReplyModule,
   UndoModule,
 } from "../common/types";
+import { Logger } from "../utils/logger.util";
 
 export class HandlerManager {
   private commands: Map<string, CommandModule> = new Map();
@@ -41,32 +42,32 @@ export class HandlerManager {
 
       const commandName = module.config.name;
       if (this.commands.has(commandName)) {
-        console.warn(`⚠️ Command "${commandName}" đã tồn tại, sẽ bị ghi đè.`);
+        Logger.warn(`⚠️ Command "${commandName}" đã tồn tại, sẽ bị ghi đè.`);
       }
       this.commands.set(commandName, module);
-      console.log(`✅ Đã load được command: ${commandName}`);
+      Logger.success(`✅ Đã load được command: ${commandName}`);
 
       // Nếu có handlerUndo
       if ("handlerUndo" in module) {
         this.undos.set(commandName, module as UndoModule);
-        console.log(`✅ Đã load được undo handler: ${commandName}`);
+        Logger.success(`✅ Đã load được undo handler: ${commandName}`);
       }
 
       if ("handlerReply" in module) {
         this.replies.set(commandName, module as ReplyModule);
-        console.log(`✅ Đã load được reply handler: ${commandName}`);
+        Logger.success(`✅ Đã load được reply handler: ${commandName}`);
       }
 
       // Nếu có handlerReaction
       if ("handlerReaction" in module) {
         this.reactions.set(commandName, module as ReactionModule);
-        console.log(`✅ Đã load được reaction handler: ${commandName}`);
+        Logger.success(`✅ Đã load được reaction handler: ${commandName}`);
       }
 
       // Nếu có noPrefix
       if ("noPrefix" in module) {
         this.noPrefix.set(commandName, module as NoPrefixModule);
-        console.log(`✅ Đã load được noPrefix handler: ${commandName}`);
+        Logger.success(`✅ Đã load được noPrefix handler: ${commandName}`);
       }
     }
   }
@@ -87,16 +88,16 @@ export class HandlerManager {
 
       const eventName = module?.config?.name;
       if (this.events.has(eventName)) {
-        console.warn(`⚠️ Event "${eventName}" đã tồn tại, sẽ bị ghi đè.`);
+        Logger.warn(`⚠️ Event "${eventName}" đã tồn tại, sẽ bị ghi đè.`);
       }
 
       this.events.set(eventName, module);
-      console.log(`✅ Đã load được event: ${eventName}`);
+      Logger.success(`✅ Đã load được event: ${eventName}`);
 
       // Nếu có onLoad
       if ("onLoad" in module) {
         this.onLoads.set(eventName, module as OnLoadModule);
-        console.log(`✅ Đã load được onLoad handler: ${eventName}`);
+        Logger.success(`✅ Đã load được onLoad handler: ${eventName}`);
       }
     }
   }

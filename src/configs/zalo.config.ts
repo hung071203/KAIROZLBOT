@@ -10,6 +10,7 @@ import {
 } from "../common/types";
 import { safeBase64 } from "../utils/download.util";
 import { DatabaseManager } from "../database";
+import { Logger } from "../utils/logger.util";
 
 config();
 
@@ -43,14 +44,14 @@ export class KairoZLBot {
         zaloConfig.agent = new HttpProxyAgent(proxyConfig.url);
         // @ts-ignore
         zaloConfig.polyfill = nodefetch;
-        console.log(
+        Logger.info(
           `🌐 [${this.accountId}] Sử dụng proxy: ${proxyConfig.url.replace(
             /\/\/.*:.*@/,
             "//***:***@"
           )}`
         );
       } catch (error) {
-        console.error(
+        Logger.error(
           `❌ [${this.accountId}] Lỗi cấu hình proxy, tiến hành đăng nhập không dùng proxy:`,
           error
         );
@@ -73,7 +74,7 @@ export class KairoZLBot {
    */
   async loginWithCookie(loginData: LoginWithCookie) {
     try {
-      console.log(`🔐 [${this.accountId}] Đang đăng nhập bằng Cookie...`);
+      Logger.info(`🔐 [${this.accountId}] Đang đăng nhập bằng Cookie...`);
 
       this.api = await this.zalo.login({
         cookie: loginData.cookie,
@@ -83,7 +84,7 @@ export class KairoZLBot {
 
       const realAccId = this.api.getOwnId();
       if (realAccId && realAccId !== this.accountId) {
-        console.log(
+        Logger.info(
           `Cập nhật ID tài khoản từ ${this.accountId} thành ${realAccId}`
         );
         
@@ -91,10 +92,10 @@ export class KairoZLBot {
         this.accountId = realAccId;
       }
 
-      console.log(`✅ [${this.accountId}] Đăng nhập thành công bằng Cookie!`);
+      Logger.info(`✅ [${this.accountId}] Đăng nhập thành công bằng Cookie!`);
       return this.api;
     } catch (error) {
-      console.error(`❌ [${this.accountId}] Lỗi đăng nhập bằng Cookie:`, error);
+      Logger.error(`❌ [${this.accountId}] Lỗi đăng nhập bằng Cookie:`, error);
       throw error;
     }
   }
@@ -105,7 +106,7 @@ export class KairoZLBot {
    */
   async loginWithQR(options: LoginWithQR = {}) {
     try {
-      console.log(`📱 [${this.accountId}] Đang tạo QR Code để đăng nhập...`);
+      Logger.info(`📱 [${this.accountId}] Đang tạo QR Code để đăng nhập...`);
 
       this.api = await this.zalo.loginQR(
         {
@@ -119,11 +120,11 @@ export class KairoZLBot {
               `data:image/png;base64,${qrPath.data["image"]}`
             );
           } else if (qrPath?.type == 2) {
-            console.log(
+            Logger.info(
               `${qrPath.data["display_name"]} đã quét QR Code, đang đợi xác nhận...`
             );
           } else if (qrPath?.type == 4) {
-            console.log(
+            Logger.info(
               `Đăng nhập thành công, đang lưu dữ liệu vào db...`
             );
             this.db.account.update(
@@ -134,7 +135,7 @@ export class KairoZLBot {
                 loginMethod: "cookie"
               })
           } else {
-            console.warn(
+            Logger.warn(
               "Lỗi không xác định:",
               JSON.stringify(qrPath, null, 2)
             );
@@ -143,7 +144,7 @@ export class KairoZLBot {
       );
       const realAccId = this.api.getOwnId();
       if (realAccId && realAccId !== this.accountId) {
-        console.log(
+        Logger.info(
           `Cập nhật ID tài khoản từ ${this.accountId} thành ${realAccId}`
         );
         
@@ -151,10 +152,10 @@ export class KairoZLBot {
         this.accountId = realAccId;
       }
 
-      console.log(`✅ [${this.accountId}] Đăng nhập thành công bằng QR Code!`);
+      Logger.info(`✅ [${this.accountId}] Đăng nhập thành công bằng QR Code!`);
       return this.api;
     } catch (error) {
-      console.error(
+      Logger.error(
         `❌ [${this.accountId}] Lỗi đăng nhập bằng QR Code:`,
         error
       );
@@ -194,7 +195,7 @@ export class KairoZLBot {
 
       return this.api;
     } catch (error) {
-      console.error(`❌ [${this.accountId}] Lỗi đăng nhập tự động:`, error);
+      Logger.error(`❌ [${this.accountId}] Lỗi đăng nhập tự động:`, error);
       throw error;
     }
   }
@@ -208,7 +209,7 @@ export class KairoZLBot {
     }
 
     this.api.listener.start();
-    console.log(`🚀 [${this.accountId}] Bot đã bắt đầu hoạt động!`);
+    Logger.info(`🚀 [${this.accountId}] Bot đã bắt đầu hoạt động!`);
   }
 
   /**
@@ -217,7 +218,7 @@ export class KairoZLBot {
   stop() {
     if (this.api && this.api.listener) {
       this.api.listener.stop();
-      console.log(`⏹️ [${this.accountId}] Bot đã dừng hoạt động!`);
+      Logger.info(`⏹️ [${this.accountId}] Bot đã dừng hoạt động!`);
     }
   }
 
@@ -266,7 +267,7 @@ export class MultiAccountBotManager {
       throw new Error(`Bot với ID ${config.accountId} đã tồn tại`);
     }
 
-    console.log(`🤖 Khởi tạo bot ${config.accountId}...`);
+    Logger.info(`🤖 Khởi tạo bot ${config.accountId}...`);
 
     const bot = new KairoZLBot(
       this.db,
@@ -296,7 +297,7 @@ export class MultiAccountBotManager {
     }
 
     this.bots.set(config.accountId, bot);
-    console.log(`✅ Bot ${config.accountId} đã sẵn sàng`);
+    Logger.info(`✅ Bot ${config.accountId} đã sẵn sàng`);
 
     return bot;
   }
@@ -323,7 +324,7 @@ export class MultiAccountBotManager {
     if (bot) {
       bot.stop();
       this.bots.delete(accountId);
-      console.log(`✅ Đã xóa bot ${accountId}`);
+      Logger.info(`✅ Đã xóa bot ${accountId}`);
     }
   }
 
@@ -331,18 +332,18 @@ export class MultiAccountBotManager {
    * Dừng tất cả bot
    */
   stopAllBots() {
-    console.log("🛑 Đang dừng tất cả bot...");
+    Logger.info("🛑 Đang dừng tất cả bot...");
 
     for (const [id, bot] of this.bots) {
       try {
         bot.stop();
       } catch (error) {
-        console.error(`❌ Lỗi dừng bot ${id}:`, error);
+        Logger.error(`❌ Lỗi dừng bot ${id}:`, error);
       }
     }
 
     this.bots.clear();
-    console.log("✅ Đã dừng tất cả bot");
+    Logger.info("✅ Đã dừng tất cả bot");
   }
 
   /**

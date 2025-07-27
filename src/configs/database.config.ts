@@ -1,6 +1,7 @@
 import { DataSource } from "typeorm";
 import { join } from "path";
 import { DatabaseManager } from "../database/database.manager";
+import { Logger } from "../utils/logger.util";
 
 // Cấu hình TypeORM với SQLite
 export const appDataSource = new DataSource({
@@ -21,7 +22,7 @@ export const initializeDatabase = async (): Promise<DatabaseManager> => {
   try {
     if (!appDataSource.isInitialized) {
       await appDataSource.initialize();
-      console.log("✅ Database connection established successfully");
+      Logger.info("✅ Database connection established successfully");
     }
     
     // Khởi tạo DatabaseManager nếu chưa có
@@ -31,7 +32,7 @@ export const initializeDatabase = async (): Promise<DatabaseManager> => {
     
     return databaseManager;
   } catch (error) {
-    console.error("❌ Error during database initialization:", error);
+    Logger.error("❌ Error during database initialization:", error);
     process.exit(1);
   }
 };
@@ -47,10 +48,10 @@ export const closeDatabase = async (): Promise<void> => {
     if (databaseManager) {
       await databaseManager.close();
       databaseManager = null;
-      console.log("✅ Database connection closed successfully");
+      Logger.info("✅ Database connection closed successfully");
     }
   } catch (error) {
-    console.error("❌ Error closing database connection:", error);
+    Logger.error("❌ Error closing database connection:", error);
   }
 };
 

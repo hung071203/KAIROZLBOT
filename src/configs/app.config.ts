@@ -1,5 +1,6 @@
 import { assert } from "console";
 import { DatabaseManager } from "../database";
+import { Logger } from "../utils/logger.util";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -30,11 +31,11 @@ export class AppConfig {
     if (fs.existsSync(this.configFilePath)) {
       const fileContent = fs.readFileSync(this.configFilePath, "utf-8");
       config = JSON.parse(fileContent);
-      console.log(`📄 Đã đọc file cấu hình: ${this.configFilePath}`);
+      Logger.info(`📄 Đã đọc file cấu hình: ${this.configFilePath}`);
     } else {
       config = defaultConfig;
       fs.writeFileSync(this.configFilePath, JSON.stringify(config, null, 2));
-      console.log(`📄 Đã tạo file cấu hình mới: ${this.configFilePath}`);
+      Logger.info(`📄 Đã tạo file cấu hình mới: ${this.configFilePath}`);
     }
 
     const fileKeys = Object.keys(config);
@@ -54,7 +55,7 @@ export class AppConfig {
     for (const key of dbKeys) {
       if (!fileKeys.includes(key)) {
         await this.db.config.deleteConfig(key);
-        console.log(`🗑️ Đã xóa config không còn dùng trong file: ${key}`);
+        Logger.info(`🗑️ Đã xóa config không còn dùng trong file: ${key}`);
       }
     }
   }
