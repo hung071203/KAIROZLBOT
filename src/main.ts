@@ -3,7 +3,6 @@ import { KairoZLBot, MultiAccountBotManager } from "./configs/zalo.config";
 import { initializeDatabase, closeDatabase } from "./configs/database.config";
 import { DatabaseManager } from "./database/database.manager";
 import { ListenerManager } from "./handlers/listener.manager";
-import accounts from "./configs/account.json";
 import * as dotenv from "dotenv";
 import * as fs from "fs";
 import * as path from "path";
@@ -47,7 +46,7 @@ async function startBot() {
     //Khởi tạo database
     console.log("🗄️ Đang khởi tạo database connection...");
     const db: DatabaseManager = await initializeDatabase();
-    
+
     if (db.isConnected) {
       console.log("✅ Database đã được khởi tạo thành công");
     } else {
@@ -63,24 +62,43 @@ async function startBot() {
     console.log("📄 Đã lấy tất cả cấu hình:", allConfigs);
 
     // Khởi tạo MultiAccountBotManager
-    const botManager = new MultiAccountBotManager();
+    const botManager = new MultiAccountBotManager(db);
+
+    const accounts = await db.account.getActiveAccounts();
 
     for (let account of accounts) {
-      if (account.qrPath.includes("/") || account.qrPath.includes("\\")) {
-        console.error(
-          `❌ Ảnh QR không được chứa đường dẫn: ${account.qrPath}, ${account.accountId}`
-        );
-        return;
+      let cookie: any
+      if (account.loginMethod === "qr") {
+        if (
+          !account.qrPath ||
+          account.qrPath.includes("/") ||
+          account.qrPath.includes("\\")
+        ) {
+          console.error(
+            `❌ Ảnh QR không được chứa đường dẫn: ${account.qrPath}, ${account.accountId}`
+          );
+          continue;
+        }
+      } else if (account.loginMethod === "cookie") {
+        try {
+          cookie = JSON.parse(account.cookie);
+        } catch (error) {
+          console.error(
+            `❌ Lỗi khi kiểm tra cookie cho tài khoản ${account.accountId}, tiến hành bỏ qua:`,
+            error
+          );
+          continue;
+        }
       }
 
       // Thêm bot mới
       await botManager.addBot({
         accountId: account.accountId,
         loginMethod: account.loginMethod as "cookie" | "qr",
-        zaloConfig: account?.zaloConfig,
-        proxyConfig: account?.proxyConfig,
+        zaloConfig: JSON.parse(account.zaloConfig || undefined),
+        proxyConfig: JSON.parse(account.proxyConfig || undefined),
         // Cookie login data
-        cookie: account.cookie,
+        cookie,
         imei: account.imei,
         userAgent: account.userAgent,
         // QR login data
@@ -91,16 +109,14 @@ async function startBot() {
       // Khởi tạo HandlerManager cho bot
       const bot = botManager.getBot(account.accountId);
 
-      console.log(`🔍 Lấy ID chuẩn với ID: ${account.accountId}`);
-      account.accountId = bot?.getAccountId() as string;
-      console.log(`✅ ID chuẩn: ${account.accountId}`);
-
       if (bot) {
         // Khởi tạo và thiết lập ListenerManager với database context
         const listenerManager = new ListenerManager(bot, db, allConfigs);
         await listenerManager.initialize();
 
-        console.log(`🔗 Bot context đã được tạo với database cho ${account.accountId}`);
+        console.log(
+          `🔗 Bot context đã được tạo với database cho ${account.accountId}`
+        );
 
         // Bắt đầu bot
         bot.start();
@@ -117,14 +133,14 @@ async function startBot() {
 }
 
 // Xử lý thoát ứng dụng
-process.on('SIGINT', async () => {
-  console.log('\n🛑 Đang thoát ứng dụng...');
+process.on("SIGINT", async () => {
+  console.log("\n🛑 Đang thoát ứng dụng...");
   await closeDatabase();
   process.exit(0);
 });
 
-process.on('SIGTERM', async () => {
-  console.log('\n🛑 Đang thoát ứng dụng...');
+process.on("SIGTERM", async () => {
+  console.log("\n🛑 Đang thoát ứng dụng...");
   await closeDatabase();
   process.exit(0);
 });

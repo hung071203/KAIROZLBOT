@@ -9,6 +9,7 @@ import {
   AccountConfig,
 } from "../common/types";
 import { safeBase64 } from "../utils/download.util";
+import { DatabaseManager } from "../database";
 
 config();
 
@@ -16,8 +17,10 @@ export class KairoZLBot {
   private zalo: Zalo;
   private api!: API; // Sẽ được khởi tạo khi đăng nhập
   private accountId: string;
+  private db: DatabaseManager;
 
   constructor(
+    db: DatabaseManager,
     config: ZaloConfig = {},
     accountId: string = "default",
     proxyConfig?: {
@@ -26,6 +29,7 @@ export class KairoZLBot {
     }
   ) {
     this.accountId = accountId;
+    this.db = db;
 
     // Cấu hình proxy nếu có
     const zaloConfig: any = {
@@ -46,7 +50,10 @@ export class KairoZLBot {
           )}`
         );
       } catch (error) {
-        console.error(`❌ [${this.accountId}] Lỗi cấu hình proxy, tiến hành đăng nhập không dùng proxy:`, error);
+        console.error(
+          `❌ [${this.accountId}] Lỗi cấu hình proxy, tiến hành đăng nhập không dùng proxy:`,
+          error
+        );
       }
     }
 
@@ -74,7 +81,15 @@ export class KairoZLBot {
         userAgent: loginData.userAgent,
       });
 
-      this.accountId = this.api.getOwnId();
+      const realAccId = this.api.getOwnId();
+      if (realAccId && realAccId !== this.accountId) {
+        console.log(
+          `Cập nhật ID tài khoản từ ${this.accountId} thành ${realAccId}`
+        );
+        
+        await this.db.account.update({ accountId: this.accountId }, { accountId: realAccId });
+        this.accountId = realAccId;
+      }
 
       console.log(`✅ [${this.accountId}] Đăng nhập thành công bằng Cookie!`);
       return this.api;
@@ -109,16 +124,32 @@ export class KairoZLBot {
             );
           } else if (qrPath?.type == 4) {
             console.log(
-              `Đăng nhập thành công! Hãy lưu thông tin đăng nhập để sử dụng sau này: `
+              `Đăng nhập thành công, đang lưu dữ liệu vào db...`
             );
-            console.log(JSON.stringify(qrPath.data, null, 2));
+            this.db.account.update(
+              { accountId: this.accountId },{
+                cookie: JSON.stringify(qrPath.data["cookie"]),
+                imei: qrPath.data["imei"],
+                userAgent: qrPath.data["userAgent"],
+                loginMethod: "cookie"
+              })
           } else {
-            console.warn("Lỗi không xác định:", JSON.stringify(qrPath, null, 2));
+            console.warn(
+              "Lỗi không xác định:",
+              JSON.stringify(qrPath, null, 2)
+            );
           }
         }
       );
-
-      this.accountId = this.api.getOwnId();
+      const realAccId = this.api.getOwnId();
+      if (realAccId && realAccId !== this.accountId) {
+        console.log(
+          `Cập nhật ID tài khoản từ ${this.accountId} thành ${realAccId}`
+        );
+        
+        await this.db.account.update({ accountId: this.accountId }, { accountId: realAccId });
+        this.accountId = realAccId;
+      }
 
       console.log(`✅ [${this.accountId}] Đăng nhập thành công bằng QR Code!`);
       return this.api;
@@ -208,7 +239,11 @@ export class KairoZLBot {
 // Multi-account bot manager
 export class MultiAccountBotManager {
   private bots: Map<string, KairoZLBot> = new Map();
+  private db: DatabaseManager;
 
+  constructor(databaseManager: DatabaseManager) {
+    this.db = databaseManager;
+  }
   /**
    * Thêm bot mới
    */
@@ -234,6 +269,7 @@ export class MultiAccountBotManager {
     console.log(`🤖 Khởi tạo bot ${config.accountId}...`);
 
     const bot = new KairoZLBot(
+      this.db,
       config.zaloConfig || {},
       config.accountId,
       config.proxyConfig
