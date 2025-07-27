@@ -21,6 +21,10 @@ export class AppConfig {
       botName: "ZCA",
       prefix: "!",
       admins: ["10001", "10002"],
+      logging: {
+        enabled: true,
+        level: ["info", "warn", "error", "debug"],
+      },
     };
 
     let config: typeof defaultConfig;
