@@ -46,7 +46,7 @@ export class KairoZLBot {
           )}`
         );
       } catch (error) {
-        console.error(`❌ [${this.accountId}] Lỗi cấu hình proxy:`, error);
+        console.error(`❌ [${this.accountId}] Lỗi cấu hình proxy, tiến hành đăng nhập không dùng proxy:`, error);
       }
     }
 
