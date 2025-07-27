@@ -31,7 +31,6 @@ export class AccountService extends BaseService<Account> {
       account.cookie = accountData.cookie ? JSON.stringify(accountData.cookie) : null;
       account.imei = accountData.imei || null;
       account.userAgent = accountData.userAgent || null;
-      account.qrPath = accountData.qrPath || null;
       account.isActive = true;
       
       return await this.save(account);
@@ -45,7 +44,6 @@ export class AccountService extends BaseService<Account> {
         cookie: accountData.cookie ? JSON.stringify(accountData.cookie) : null,
         imei: accountData.imei || null,
         userAgent: accountData.userAgent || null,
-        qrPath: accountData.qrPath || null,
         isActive: true,
       });
     }
@@ -88,7 +86,6 @@ export class AccountService extends BaseService<Account> {
       cookie: account.cookie ? JSON.parse(account.cookie) : undefined,
       imei: account.imei || undefined,
       userAgent: account.userAgent || undefined,
-      qrPath: account.qrPath || undefined,
     };
   }
 
