@@ -7,10 +7,12 @@ import * as dotenv from "dotenv";
 import * as fs from "fs";
 import * as path from "path";
 import { AppConfig } from "./configs/app.config";
+import { Logger } from "./utils/logger.util";
 
 dotenv.config();
 
 async function startBot() {
+  Logger.info("🚀 Bắt đầu khởi động bot...");
   try {
     // Kiểm tra và tạo thư mục lưu trữ QR nếu chưa tồn tại
     const cacheDir = path.join(

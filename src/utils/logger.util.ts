@@ -16,8 +16,8 @@ function log(level: LogLevel, message: string) {
 }
 
 export const Logger = {
-  info: (msg: string) => log("info", msg),
-  warn: (msg: string) => log("warn", msg),
-  error: (msg: string) => log("error", msg),
-  debug: (msg: string) => log("debug", msg),
+  info: (...args: any[]) => log("info", ...args),
+  warn: (...args: any[]) => log("warn", ...args),
+  error: (...args: any[]) => log("error", ...args),
+  debug: (...args: any[]) => log("debug", ...args),
 };
