@@ -1,16 +1,16 @@
 import { API, Message } from "zca-js";
 import { BotContext, CommandModule, NoPrefixModule } from "../../common/types";
 import { DeepAiChatStyleEnum, DeepAiModelEnum, RoleEnum } from "../../common";
-import { chatDeepAi } from "../../common/services/chat-ai.service";
+import { chatDeepAi, AgentService } from "../../common/services";
 
 export default {
   config: {
     name: "agent",
-    version: "1.0.0",
+    version: "2.0.0",
     credits: "Hung dep trai",
-    description: "agent",
+    description: "AI Agent thông minh có thể tự động thực thi API Zalo và truy vấn database",
     tag: "AI",
-    usage: "nhắn 'agent' để bot tự động trả lời",
+    usage: "Gửi yêu cầu tự nhiên cho AI để thực hiện các hành động tự động: thông tin nhóm, quản lý thành viên, tạo poll, v.v.",
     countDown: 1,
     role: RoleEnum.ALL,
     self: false, // Chỉ dành cho bot cá nhân
@@ -23,19 +23,23 @@ export default {
     args: string[]
   ) => {
     if (args.length === 0) {
-      api.sendMessage("Vui lòng nhập câu hỏi hoặc truy vấn để trò chuyện với AI.", event.threadId);
+      api.sendMessage("Vui lòng nhập câu hỏi hoặc yêu cầu để AI có thể hỗ trợ bạn.\n\nVí dụ:\n• 'thông tin nhóm này'\n• 'thêm [userId] vào nhóm'\n• 'tạo poll về [chủ đề]'\n• 'ai online'\n• 'đổi tên nhóm thành [tên mới]'", event.threadId);
       return;
     }
+
     try {
-      const res = await chatDeepAi({
-        style: DeepAiChatStyleEnum.CHAT,
-        content: args.join(" "),
-        model: DeepAiModelEnum.STANDARD,
-        history: [],
-      });
-      api.sendMessage(res.content, event.threadId);
+      // Khởi tạo Agent Service
+      const agentService = new AgentService(api, context, event);
+      
+      // Xử lý yêu cầu thông minh
+      const response = await agentService.processRequest(args.join(" "));
+      
+      // Gửi phản hồi
+      api.sendMessage(response, event.threadId);
+      
     } catch (error: any) {
-      api.sendMessage(`❌ Lỗi khi gọi AI: ${error.message}`, event.threadId);
+      console.error("Agent error:", error);
+      api.sendMessage(`❌ Lỗi khi xử lý yêu cầu: ${error.message}`, event.threadId);
       return;
     }
   },
