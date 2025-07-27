@@ -42,7 +42,7 @@ export class SetupListeners {
     }
 
     const prefix = this.botContext.config?.prefix || "!";
-    if(args[0] && args[0].startsWith(prefix)) return;
+    if (args[0] && args[0].startsWith(prefix)) return;
 
     const handlerReply = this.botContext.handlerReply.find(
       (reply) =>
@@ -50,10 +50,11 @@ export class SetupListeners {
         reply.threadId === threadId
     );
 
-    if (handlerReply && replyModules.has(handlerReply.name)) {
-      replyModules
-        .get(handlerReply.name)
-        .handlerReply(this.api, this.botContext, event, args);
+    const handler = replyModules.get(handlerReply.name);
+
+    if (handlerReply && handler) {
+      if (event.isSelf && handler.config.self === false) return;
+      handler.handlerReply(this.api, this.botContext, event, args);
     }
   }
 
@@ -93,12 +94,12 @@ export class SetupListeners {
 
     let args: string[] = [];
     if (typeof content === "string") {
-      args = content.split(/\s+/).filter((arg) => arg.trim() !== "");
+      args = content.split(" ").filter((arg) => arg.trim() !== "");
     } else if (
       typeof content === "object" &&
       typeof content.title === "string"
     ) {
-      args = content.title.split(/\s+/).filter((arg) => arg.trim() !== "");
+      args = content.title.split(" ").filter((arg) => arg.trim() !== "");
     }
 
     if (args.length === 0) return;
@@ -126,7 +127,7 @@ export class SetupListeners {
       await this.executeCommand(module, commandName, args.slice(1), msg, true);
     } else if (isNoPrefixCommand) {
       const module = noPrefixModules.get(commandName)!;
-      await this.executeCommand(module, commandName, args, msg, false);
+      await this.executeCommand(module, commandName, args.slice(1), msg, false);
     }
   }
 
