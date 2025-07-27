@@ -267,79 +267,78 @@ class AccountCLI {
     }
   }
 
-  // Thêm tài khoản mới
+  // Thêm tài khoản mới (đọc từ file account.json và lưu vào database)
   async addAccount(): Promise<void> {
-    console.log('\n=== THÊM TÀI KHOẢN MỚI ===');
-    
-    const accountId = await this.question('Nhập Account ID: ');
-    if (!accountId.trim()) {
-      console.log('❌ Account ID không được để trống!');
-      return;
-    }
-
-    // Kiểm tra trùng lặp
-    const accounts = this.readAccountsFromFile();
-    if (accounts.find(acc => acc.accountId === accountId)) {
-      console.log('❌ Account ID đã tồn tại!');
-      return;
-    }
-
-    const loginMethodStr = await this.question('Chọn phương thức đăng nhập (1: cookie, 2: qr): ');
-    const loginMethod = loginMethodStr === '1' ? 'cookie' : 'qr';
-
-    const newAccount: AccountData = {
-      accountId,
-      loginMethod,
-      isActive: true
-    };
-
-    // Nhập QR Path
-    const qrPath = await this.question('Nhập QR Path (để trống nếu không có): ');
-    if (qrPath.trim()) {
-      newAccount.qrPath = qrPath.trim();
-    }
-
-    // Nhập IMEI
-    const imei = await this.question('Nhập IMEI (để trống nếu không có): ');
-    if (imei.trim()) {
-      newAccount.imei = imei.trim();
-    }
-
-    // Nhập User Agent
-    const userAgent = await this.question('Nhập User Agent (để trống nếu không có): ');
-    if (userAgent.trim()) {
-      newAccount.userAgent = userAgent.trim();
-    }
-
-    // Cấu hình Zalo
-    const configZalo = await this.question('Cấu hình Zalo? (y/n): ');
-    if (configZalo.toLowerCase() === 'y') {
-      const selfListen = await this.question('Self Listen (y/n): ');
-      const checkUpdate = await this.question('Check Update (y/n): ');
-      const logging = await this.question('Logging (y/n): ');
+    try {
+      console.log('\n=== THÊM TÀI KHOẢN MỚI ===');
+      console.log('🔄 Đang đọc dữ liệu từ file account.json...');
       
-      newAccount.zaloConfig = {
-        selfListen: selfListen.toLowerCase() === 'y',
-        checkUpdate: checkUpdate.toLowerCase() === 'y',
-        logging: logging.toLowerCase() === 'y'
-      };
-    }
-
-    // Cấu hình Proxy
-    const configProxy = await this.question('Cấu hình Proxy? (y/n): ');
-    if (configProxy.toLowerCase() === 'y') {
-      const proxyEnabled = await this.question('Bật Proxy (y/n): ');
-      const proxyUrl = await this.question('Nhập Proxy URL: ');
+      // Đọc tài khoản từ file
+      const accounts = this.readAccountsFromFile();
       
-      newAccount.proxyConfig = {
-        enabled: proxyEnabled.toLowerCase() === 'y',
-        url: proxyUrl.trim()
-      };
-    }
+      if (accounts.length === 0) {
+        console.log('📋 Không có tài khoản nào trong file account.json.');
+        console.log('💡 Bạn có thể tạo file mẫu (chọn 1) trước khi thêm tài khoản.');
+        return;
+      }
 
-    accounts.push(newAccount);
-    this.writeAccountsToFile(accounts);
-    console.log('✅ Thêm tài khoản thành công!');
+      // Lấy danh sách tài khoản đã có trong database
+      const dbAccounts = await this.accountService.find();
+      const existingAccountIds = dbAccounts.map(acc => acc.accountId);
+
+      let addedCount = 0;
+      let skippedCount = 0;
+      
+      console.log('\n🔄 Đang xử lý từng tài khoản...');
+      
+      for (const accountData of accounts) {
+        try {
+          // Kiểm tra tài khoản đã tồn tại trong database chưa
+          if (existingAccountIds.includes(accountData.accountId)) {
+            console.log(`⚠️  Bỏ qua "${accountData.accountId}" - đã tồn tại trong database`);
+            skippedCount++;
+            continue;
+          }
+
+          // Thêm tài khoản vào database (AccountService sẽ tự stringify)
+          await this.accountService.createOrUpdateAccount({
+            accountId: accountData.accountId,
+            loginMethod: accountData.loginMethod,
+            zaloConfig: accountData.zaloConfig,
+            proxyConfig: accountData.proxyConfig,
+            cookie: accountData.cookie,
+            imei: accountData.imei,
+            userAgent: accountData.userAgent,
+            qrPath: accountData.qrPath
+          });
+          
+          // Cập nhật trạng thái active
+          if (accountData.isActive === false) {
+            await this.accountService.deactivateAccount(accountData.accountId);
+          } else {
+            await this.accountService.activateAccount(accountData.accountId);
+          }
+          
+          console.log(`✅ Thêm thành công: "${accountData.accountId}"`);
+          addedCount++;
+          
+        } catch (error) {
+          console.error(`❌ Lỗi khi thêm tài khoản "${accountData.accountId}":`, error);
+        }
+      }
+      
+      console.log('\n=== KẾT QUẢ THÊM TÀI KHOẢN ===');
+      console.log(`✅ Đã thêm: ${addedCount} tài khoản`);
+      console.log(`⚠️  Đã bỏ qua: ${skippedCount} tài khoản (đã tồn tại)`);
+      console.log(`📊 Tổng xử lý: ${addedCount + skippedCount}/${accounts.length} tài khoản`);
+      
+      if (addedCount > 0) {
+        console.log('💾 Tất cả tài khoản mới đã được lưu vào database.');
+      }
+      
+    } catch (error) {
+      console.error('❌ Lỗi khi thêm tài khoản:', error);
+    }
   }
 
   // Sửa tài khoản
@@ -431,7 +430,7 @@ class AccountCLI {
 
   // Bật/Tắt tài khoản
   async toggleAccount(): Promise<void> {
-    const accounts = this.readAccountsFromFile();
+    const accounts = this.accountService.findAll();
     
     if (accounts.length === 0) {
       console.log('📋 Không có tài khoản nào để thay đổi trạng thái.');
@@ -455,6 +454,7 @@ class AccountCLI {
     
     account.isActive = newStatus;
     this.writeAccountsToFile(accounts);
+    this.accountService.update({ accountId: account.accountId }, { isActive: newStatus });
     
     console.log(`✅ Đã ${newStatus ? 'bật' : 'tắt'} tài khoản "${account.accountId}"`);
   }
