@@ -137,3 +137,14 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Database files
+*.sqlite
+src/database/bot.sqlite
+
+# Configuration files with sensitive data
+src/configs/account.json
+
+# QR code images
+*.png
+qr_*.png
