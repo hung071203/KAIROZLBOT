@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { AccountService } from './database/services/account-service';
 import { initializeDatabase } from './configs/database.config';
-import { Account } from './database/entities/Account';
+import { DatabaseManager } from './database';
 
 interface AccountData {
   accountId: string;
@@ -28,13 +28,15 @@ class AccountCLI {
   private rl: readline.Interface;
   private accountService: AccountService;
   private accountsFilePath: string;
+  private db: DatabaseManager;
 
-  constructor() {
+  constructor(db: DatabaseManager) {
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout
     });
-    this.accountService = new AccountService();
+    this.db = db;
+    this.accountService = this.db.account;
     this.accountsFilePath = path.join(process.cwd(), "src", 'configs', 'account.json');
   }
 
@@ -155,9 +157,6 @@ class AccountCLI {
     try {
       console.log('\n=== XEM TẤT CẢ TÀI KHOẢN ===');
       console.log('🔄 Đang lấy dữ liệu từ database...');
-      
-      // Khởi tạo database
-      const databaseManager = await initializeDatabase();
       
       // Lấy tất cả tài khoản từ database
       const dbAccounts = await this.accountService.find();
@@ -465,9 +464,6 @@ class AccountCLI {
     try {
       console.log('\n=== ĐỒNG BỘ FILE → DATABASE ===');
       
-      // Khởi tạo database
-      const databaseManager = await initializeDatabase();
-      
       const accounts = this.readAccountsFromFile();
       let syncCount = 0;
       
@@ -507,9 +503,6 @@ class AccountCLI {
   async syncDatabaseToFile(): Promise<void> {
     try {
       console.log('\n=== ĐỒNG BỘ DATABASE → FILE ===');
-      
-      // Khởi tạo database
-      const databaseManager = await initializeDatabase();
       
       // Lấy tất cả tài khoản từ database
       const dbAccounts = await this.accountService.find();
@@ -626,8 +619,12 @@ class AccountCLI {
 
 // Chạy CLI nếu file được thực thi trực tiếp
 if (require.main === module) {
-  const cli = new AccountCLI();
-  cli.run().catch(console.error);
+  (async () => {
+    const db: DatabaseManager = await initializeDatabase();
+    const cli = new AccountCLI(db);
+    await cli.run();
+  })().catch(console.error);
 }
+
 
 export { AccountCLI };
