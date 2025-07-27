@@ -8,6 +8,7 @@
     "start": "node dist/main.js",
     "dev": "ts-node src/main.ts",
     "dev:w": "ts-node-dev --respawn --transpile-only src/main.ts",
+    "acc-cli": "ts-node src/account-cli.ts",
     "clean": "rimraf dist"
   },
   "dependencies": {
