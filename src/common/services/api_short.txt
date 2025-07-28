@@ -1,7 +1,6 @@
-# ZCA-JS API Documentation - Phiên bản rút gọn
+ ZCA-JS API Documentation
 
-## 1. FRIEND MANAGEMENT
-```javascript
+ 1. FRIEND MANAGEMENT
 // Quản lý bạn bè
 api.acceptFriendRequest(userId: string): Promise<"">
 api.sendFriendRequest(userId: string, message?: string): Promise<SendFriendRequestResponse>
@@ -12,15 +11,13 @@ api.changeFriendAlias(alias: string, friendId: string): Promise<"">
 api.removeFriendAlias(friendId: string): Promise<"">
 api.getAllFriends(count?: number, page?: number): Promise<GetAllFriendsResponse>
 // GetAllFriendsResponse: Array<{userId, username, displayName, zaloName, avatar, gender, phoneNumber, status}>
-```
 
-## 2. GROUP MANAGEMENT
-```javascript
+
+ 2. GROUP MANAGEMENT
 // Quản lý nhóm
 api.createGroup(options: CreateGroupOptions): Promise<CreateGroupResponse>
 // CreateGroupOptions: {name?: string, members: string[], avatarSource?: AttachmentSource}
 // CreateGroupResponse: {groupId, sucessMembers, errorMembers, error_data}
-
 api.addUserToGroup(memberId: string | string[], groupId: string): Promise<AddUserToGroupResponse>
 api.removeUserFromGroup(memberId: string | string[], groupId: string): Promise<"">
 api.changeGroupName(name: string, groupId: string): Promise<ChangeGroupNameResponse>
@@ -30,13 +27,11 @@ api.addGroupDeputy(memberId: string | string[], groupId: string): Promise<"">
 api.removeGroupDeputy(memberId: string | string[], groupId: string): Promise<"">
 api.leaveGroup(groupId: string): Promise<"">
 api.disperseGroup(groupId: string): Promise<"">
-```
 
-## 3. MESSAGE APIS
-```javascript
+
+ 3. MESSAGE APIS
 // Gửi tin nhắn
 api.sendMessage(message: MessageContent | string, threadId: string, type?: ThreadType): Promise<SendMessageResponse>
-
 // MessageContent object:
 {
   msg: string,                           // Nội dung tin nhắn (bắt buộc)
@@ -69,10 +64,9 @@ api.forwardMessage(params: ForwardMessageParams): Promise<ForwardMessageResponse
 // ForwardMessageParams: {message: string, threadIds: string[], ttl?: number, reference?: object}
 
 api.deleteMessage(messageId: string, threadId: string, type?: ThreadType): Promise<"">
-```
 
-## 4. REACTION & CHAT MANAGEMENT
-```javascript
+
+4. REACTION & CHAT MANAGEMENT
 // Reaction
 api.addReaction(icon: Reactions | CustomReaction, dest: AddReactionDestination): Promise<AddReactionResponse>
 // AddReactionDestination: {data: {msgId: string, cliMsgId: string}, threadId: string, type: ThreadType}
@@ -82,10 +76,9 @@ api.deleteChat(threadId: string, type?: ThreadType): Promise<"">
 api.setMute(isMute: boolean, threadId: string, type?: ThreadType): Promise<"">
 api.addUnreadMark(threadId: string, type?: ThreadType): Promise<AddUnreadMarkResponse>
 api.removeUnreadMark(threadId: string, type?: ThreadType): Promise<"">
-```
 
-## 5. ACCOUNT & USER INFO
-```javascript
+
+5. ACCOUNT & USER INFO
 // Thông tin tài khoản
 api.fetchAccountInfo(): Promise<AccountInfo>
 api.getUserInfo(userId: string | string[]): Promise<ProfileInfo[]>
@@ -96,10 +89,9 @@ api.updateProfile(profileData: ProfileUpdateData): Promise<"">
 // ProfileUpdateData: {displayName?: string, status?: string, ...}
 api.getOwnId(): Promise<string>
 api.findUser(keyword: string): Promise<FindUserResponse>
-```
 
-## 6. UTILITIES
-```javascript
+
+6. UTILITIES
 // Tiện ích
 api.uploadAttachment(attachment: AttachmentSource, threadId: string, type?: ThreadType): Promise<UploadResponse>
 api.keepAlive(): Promise<"">
@@ -123,10 +115,9 @@ api.createPoll(pollData: CreatePollData, groupId: string): Promise<CreatePollRes
 // CreatePollData: {question: string, options: string[]}
 api.getPollDetail(pollId: string): Promise<PollDetailResponse>
 api.lockPoll(pollId: string): Promise<"">
-```
 
-## 7. EVENTS & STATUS
-```javascript
+
+7. EVENTS & STATUS
 // Sự kiện cuộc trò chuyện
 api.sendDeliveredEvent(messageId: string, threadId: string): Promise<"">
 api.sendSeenEvent(messageId: string, threadId: string): Promise<"">
@@ -148,10 +139,9 @@ api.updateLang(language: string): Promise<"">
 // Sticker
 api.getStickers(): Promise<StickersResponse>
 api.getStickersDetail(stickerId: string): Promise<StickerDetail>
-```
 
-## ENUMS & TYPES
-```javascript
+
+ENUMS & TYPES
 // ThreadType
 ThreadType.USER = "USER"           // Chat 1-1
 ThreadType.GROUP = "GROUP"         // Chat nhóm
@@ -160,10 +150,9 @@ ThreadType.GROUP = "GROUP"         // Chat nhóm
 Urgency.Default = 0                // Tin nhắn bình thường
 Urgency.Important = 1              // Tin nhắn quan trọng
 Urgency.Urgent = 2                 // Tin nhắn khẩn cấp
-```
 
-## VÍ DỤ SỬ DỤNG NHANH
-```javascript
+
+VÍ DỤ SỬ DỤNG NHANH
 // Gửi tin nhắn đơn giản
 await api.sendMessage("Hello", "userId");
 
@@ -185,4 +174,4 @@ await api.createGroup({
 
 // Upload và gửi file
 const result = await api.uploadAttachment("/path/image.jpg", "threadId");
-```
+

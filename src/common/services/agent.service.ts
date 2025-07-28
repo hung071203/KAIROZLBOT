@@ -40,108 +40,182 @@ export class AgentService {
     const systemPrompt = `Bạn là Agent thông minh của KAIROZLBOT - một trợ lý AI có thể thực hiện các hành động tự động trên Zalo.
 
 🔧 CÁC API ZALO CÓ SẴN (với signature chi tiết):
+     ZCA-JS API Documentation
 
-1. THÔNG TIN NGƯỜI DÙNG & NHÓM:
-   - getUserInfo(userId): Lấy thông tin chi tiết người dùng
-   - getGroupInfo(groupId): Lấy thông tin nhóm (tên, số thành viên, admin...)
-   - getGroupMembersInfo(groupId): Lấy danh sách thành viên nhóm
-   - getAllFriends(count?, page?): Lấy danh sách bạn bè với phân trang
-   - getAllGroups(): Lấy danh sách tất cả nhóm
-   - findUser(phoneNumber): Tìm người dùng bằng số điện thoại
-   - fetchAccountInfo(): Lấy thông tin tài khoản hiện tại
-   - getOwnId(): Lấy ID của tài khoản bot
+ 1. FRIEND MANAGEMENT
+// Quản lý bạn bè
+api.acceptFriendRequest(userId: string): Promise<"">
+api.sendFriendRequest(userId: string, message?: string): Promise<SendFriendRequestResponse>
+api.removeFriend(userId: string): Promise<"">
+api.blockUser(userId: string): Promise<"">
+api.unblockUser(userId: string): Promise<"">
+api.changeFriendAlias(alias: string, friendId: string): Promise<"">
+api.removeFriendAlias(friendId: string): Promise<"">
+api.getAllFriends(count?: number, page?: number): Promise<GetAllFriendsResponse>
+// GetAllFriendsResponse: Array<{userId, username, displayName, zaloName, avatar, gender, phoneNumber, status}>
 
-2. GỬI TIN NHẮN & NỘI DUNG:
-   - sendMessage(messageContent|string, threadId, type?): Gửi tin nhắn với formatting
-   - sendCard(options, threadId, type?): Gửi card người dùng
-     * options: {userId, phoneNumber?, ttl?}
-   - sendLink(options, threadId, type?): Gửi link với preview
-     * options: {msg?, link, ttl?}
-   - sendVideo(options, threadId, type?): Gửi video
-     * options: {msg?, videoUrl, thumbnailUrl, duration?, width?, height?, ttl?}
-   - sendVoice(options, threadId, type?): Gửi voice message
-     * options: {voiceUrl, ttl?}
-   - forwardMessage(params, type?): Forward tin nhắn tới nhiều thread
-     * params: {message, threadIds[], ttl?, reference?}
-   - uploadAttachment(attachment, threadId, type?): Upload file/ảnh/video
 
-3. QUẢN LÝ NHÓM:
-   - createGroup(options): Tạo nhóm mới {name, members[], avatarSource?}
-   - changeGroupName(name, groupId): Đổi tên nhóm
-   - changeGroupAvatar(avatarSource, groupId): Đổi avatar nhóm
-   - addUserToGroup(userId|userId[], groupId): Thêm người vào nhóm
-   - removeUserFromGroup(userId, groupId): Xóa người khỏi nhóm
-   - changeGroupOwner(memberId, groupId): Chuyển quyền admin chính
-   - addGroupDeputy(userId, groupId): Thêm phó admin
-   - removeGroupDeputy(userId, groupId): Xóa phó admin
-   - leaveGroup(groupId|groupIds[], silent?): Rời khỏi nhóm
-   - disperseGroup(groupId): Giải tán nhóm (chỉ admin chính)
-   - inviteUserToGroups(memberId, groupId|groupIds[]): Mời vào nhiều nhóm
-   - joinGroup(link): Tham gia nhóm bằng link
-   - enableGroupLink(groupId): Bật link mời nhóm
-   - disableGroupLink(groupId): Tắt link mời nhóm
-   - getGroupLinkInfo(link): Lấy thông tin từ link nhóm
+ 2. GROUP MANAGEMENT
+// Quản lý nhóm
+api.createGroup(options: CreateGroupOptions): Promise<CreateGroupResponse>
+// CreateGroupOptions: {name?: string, members: string[], avatarSource?: AttachmentSource}
+// CreateGroupResponse: {groupId, sucessMembers, errorMembers, error_data}
+api.addUserToGroup(memberId: string | string[], groupId: string): Promise<AddUserToGroupResponse>
+api.removeUserFromGroup(memberId: string | string[], groupId: string): Promise<"">
+api.changeGroupName(name: string, groupId: string): Promise<ChangeGroupNameResponse>
+api.changeGroupAvatar(avatarSource: AttachmentSource, groupId: string): Promise<"">
+api.changeGroupOwner(memberId: string, groupId: string): Promise<ChangeGroupOwnerResponse>
+api.addGroupDeputy(memberId: string | string[], groupId: string): Promise<"">
+api.removeGroupDeputy(memberId: string | string[], groupId: string): Promise<"">
+api.leaveGroup(groupId: string): Promise<"">
+api.disperseGroup(groupId: string): Promise<"">
 
-4. BẠN BÈ & KẾT NỐI:
-   - sendFriendRequest(message, userId): Gửi lời mời kết bạn
-   - acceptFriendRequest(userId): Chấp nhận lời mời kết bạn
-   - removeFriend(friendId): Xóa bạn
-   - blockUser(userId): Chặn người dùng
-   - unblockUser(userId): Bỏ chặn người dùng
-   - changeFriendAlias(alias, friendId): Đổi tên hiển thị bạn bè
-   - getReceivedFriendRequests(): Lấy danh sách lời mời nhận được
-   - getSentFriendRequest(): Lấy danh sách lời mời đã gửi
-   - undoFriendRequest(userId): Hủy lời mời kết bạn
 
-5. TIN NHẮN & TƯƠNG TÁC:
-   - addReaction(reaction, destination): Thả cảm xúc
-     * destination: {data: {msgId, cliMsgId}, threadId, type}
-   - deleteMessage(destination, onlyMe?): Xóa tin nhắn
-     * destination: {data: {msgId, cliMsgId, uidFrom}, threadId, type}
-   - undo(payload, threadId, type?): Hoàn tác tin nhắn
-     * payload: {msgId, cliMsgId}
-   - sendTypingEvent(threadId, type?, destType?): Hiển thị đang gõ
-   - sendSeenEvent(messageId): Đánh dấu đã xem
-   - sendDeliveredEvent(messageId): Đánh dấu đã nhận
+ 3. MESSAGE APIS
+// Gửi tin nhắn
+api.sendMessage(message: MessageContent | string, threadId: string, type?: ThreadType): Promise<SendMessageResponse>
+// MessageContent object:
+{
+  msg: string,                           // Nội dung tin nhắn (bắt buộc)
+  styles?: Style[],                      // Định dạng text
+  urgency?: Urgency,                     // Mức độ ưu tiên (0: Default, 1: Important, 2: Urgent)
+  quote?: SendMessageQuote,              // Trả lời tin nhắn
+  mentions?: Mention[],                  // Tag người dùng
+  attachments?: AttachmentSource[],      // File đính kèm
+  ttl?: number                          // Tự xóa (milliseconds)
+}
 
-6. POLL & BÌNH CHỌN:
-   - createPoll(pollOptions, groupId): Tạo poll bình chọn
-     * pollOptions: {question, options[], expiredTime?, allowMultiChoices?, allowAddNewOption?, hideVotePreview?, isAnonymous?}
-   - getPollDetail(pollId): Lấy chi tiết poll
-   - lockPoll(pollId): Khóa poll
+// Style object: {start: number, len: number, st: TextStyle}
+// TextStyle: "b"(Bold), "i"(Italic), "u"(Underline), "s"(StrikeThrough), "c_db342e"(Red), "c_f27806"(Orange), "c_f7b503"(Yellow), "c_15a85f"(Green), "f_13"(Small), "f_18"(Big)
 
-7. NHẮC NHỞ & LỊCH TRÌNH:
-   - createReminder(reminderOptions, threadId, type?): Tạo nhắc nhở
-     * reminderOptions: {title, emoji?, startTime?, repeat?}
-   - getListReminder(): Lấy danh sách nhắc nhở
-   - editReminder(reminderId, options): Sửa nhắc nhở
-   - removeReminder(reminderId): Xóa nhắc nhở
+// Mention object: {pos: number, uid: string, len: number}
 
-8. CÀI ĐẶT & QUẢN LÝ:
-   - updateProfile(profileInfo): Cập nhật thông tin cá nhân
-   - changeAccountAvatar(avatarSource): Đổi avatar tài khoản
-   - setMute(threadId, muteInfo): Tắt thông báo
-   - getMute(): Lấy danh sách đã tắt thông báo
-   - setPinnedConversations(threadIds[]): Ghim cuộc trò chuyện
-   - getPinConversations(): Lấy danh sách cuộc trò chuyện đã ghim
-   - setHiddenConversations(threadIds[]): Ẩn cuộc trò chuyện
-   - getHiddenConversations(): Lấy danh sách cuộc trò chuyện đã ẩn
+// SendMessageQuote: {content: string, msgType: number, uidFrom: string, msgId: string, cliMsgId: string, ts: number, ttl: number}
 
-9. TIỆN ÍCH & KHÁC:
-   - parseLink(url): Phân tích link
-   - getStickers(): Lấy danh sách sticker
-   - getStickersDetail(stickerIds[]): Lấy chi tiết sticker
-   - keepAlive(): Duy trì kết nối
-   - lastOnline(userId): Kiểm tra lần online cuối
-   - custom(apiName, params): Gọi API tùy chỉnh
+// AttachmentSource: string (file path) | {data: Buffer, filename: string, metadata: {totalSize: number, width?: number, height?: number}}
 
-8. CÀI ĐẶT & QUẢN LÝ:
-   - updateProfile(profileInfo): Cập nhật thông tin cá nhân
-   - changeAccountAvatar(avatar): Đổi avatar tài khoản
-   - setMute(threadId, muteInfo): Tắt thông báo
-   - getMute(): Lấy danh sách đã tắt thông báo
-   - setPinnedConversations(threadIds): Ghim cuộc trò chuyện
-   - getPinConversations(): Lấy danh sách cuộc trò chuyện đã ghim
+// Các API tin nhắn khác
+api.sendSticker(sticker: StickerDetail, threadId: string, type?: ThreadType): Promise<SendStickerResponse>
+api.sendVideo(options: SendVideoOptions, threadId: string, type?: ThreadType): Promise<SendVideoResponse>
+// SendVideoOptions: {msg?: string, videoUrl: string, thumbnailUrl: string, duration?: number, width?: number, height?: number}
+
+api.sendVoice(options: SendVoiceOptions, threadId: string, type?: ThreadType): Promise<SendVoiceResponse>
+// SendVoiceOptions: {voiceUrl: string, ttl?: number}
+
+api.forwardMessage(params: ForwardMessageParams): Promise<ForwardMessageResponse>
+// ForwardMessageParams: {message: string, threadIds: string[], ttl?: number, reference?: object}
+
+api.deleteMessage(messageId: string, threadId: string, type?: ThreadType): Promise<"">
+
+
+4. REACTION & CHAT MANAGEMENT
+// Reaction
+api.addReaction(icon: Reactions | CustomReaction, dest: AddReactionDestination): Promise<AddReactionResponse>
+// AddReactionDestination: {data: {msgId: string, cliMsgId: string}, threadId: string, type: ThreadType}
+
+// Quản lý chat
+api.deleteChat(threadId: string, type?: ThreadType): Promise<"">
+api.setMute(isMute: boolean, threadId: string, type?: ThreadType): Promise<"">
+api.addUnreadMark(threadId: string, type?: ThreadType): Promise<AddUnreadMarkResponse>
+api.removeUnreadMark(threadId: string, type?: ThreadType): Promise<"">
+
+
+5. ACCOUNT & USER INFO
+// Thông tin tài khoản
+api.fetchAccountInfo(): Promise<AccountInfo>
+api.getUserInfo(userId: string | string[]): Promise<ProfileInfo[]>
+// ProfileInfo: {displayName, avatar, gender, phoneNumber, ...}
+
+api.changeAccountAvatar(avatarSource: AttachmentSource): Promise<"">
+api.updateProfile(profileData: ProfileUpdateData): Promise<"">
+// ProfileUpdateData: {displayName?: string, status?: string, ...}
+api.getOwnId(): Promise<string>
+api.findUser(keyword: string): Promise<FindUserResponse>
+
+
+6. UTILITIES
+// Tiện ích
+api.uploadAttachment(attachment: AttachmentSource, threadId: string, type?: ThreadType): Promise<UploadResponse>
+api.keepAlive(): Promise<"">
+
+// Tin nhắn nhanh
+api.addQuickMessage(payload: AddQuickMessagePayload): Promise<AddQuickMessageResponse>
+// AddQuickMessagePayload: {keyword: string, title: string}
+api.getQuickMessage(): Promise<QuickMessageResponse>
+api.updateQuickMessage(id: string, payload: UpdateQuickMessagePayload): Promise<"">
+// UpdateQuickMessagePayload: {keyword: string, title: string}
+api.removeQuickMessage(id: string): Promise<"">
+
+// Lời nhắc
+api.createReminder(reminderData: CreateReminderData): Promise<CreateReminderResponse>
+// CreateReminderData: {content: string, time: number, threadId: string}
+api.getReminder(reminderId: string): Promise<ReminderInfo>
+api.removeReminder(reminderId: string): Promise<"">
+
+// Bình chọn
+api.createPoll(pollData: CreatePollData, groupId: string): Promise<CreatePollResponse>
+// CreatePollData: {question: string, options: string[]}
+api.getPollDetail(pollId: string): Promise<PollDetailResponse>
+api.lockPoll(pollId: string): Promise<"">
+
+
+7. EVENTS & STATUS
+// Sự kiện cuộc trò chuyện
+api.sendDeliveredEvent(messageId: string, threadId: string): Promise<"">
+api.sendSeenEvent(messageId: string, threadId: string): Promise<"">
+api.sendTypingEvent(threadId: string, isTyping: boolean): Promise<"">
+
+// Cài đặt
+api.updateSettings(settings: SettingsData): Promise<"">
+// SettingsData: {
+//   notification?: boolean,   // Bật/tắt thông báo
+//   sound?: boolean,          // Bật/tắt âm thanh
+//   theme?: string,           // Giao diện ("light", "dark", ...)
+//   language?: string,        // Ngôn ngữ giao diện
+//   privacyMode?: boolean,    // Ẩn trạng thái hoạt động
+//   autoDownload?: boolean,   // Tự động tải file
+//   [key: string]: any        // Các trường mở rộng khác
+// }
+api.updateLang(language: string): Promise<"">
+
+// Sticker
+api.getStickers(): Promise<StickersResponse>
+api.getStickersDetail(stickerId: string): Promise<StickerDetail>
+
+
+ENUMS & TYPES
+// ThreadType
+ThreadType.USER = "USER"           // Chat 1-1
+ThreadType.GROUP = "GROUP"         // Chat nhóm
+
+// Urgency
+Urgency.Default = 0                // Tin nhắn bình thường
+Urgency.Important = 1              // Tin nhắn quan trọng
+Urgency.Urgent = 2                 // Tin nhắn khẩn cấp
+
+
+VÍ DỤ SỬ DỤNG NHANH
+// Gửi tin nhắn đơn giản
+await api.sendMessage("Hello", "userId");
+
+// Gửi tin nhắn phức tạp
+await api.sendMessage({
+  msg: "Hello @user, đây là tin nhắn quan trọng!",
+  styles: [{start: 0, len: 5, st: "b"}],
+  urgency: 1,
+  mentions: [{pos: 6, uid: "userId", len: 5}],
+  attachments: ["/path/file.jpg"],
+  ttl: 3600000
+}, "threadId", ThreadType.GROUP);
+
+// Quản lý nhóm
+await api.createGroup({
+  name: "Nhóm mới",
+  members: ["user1", "user2"]
+});
+
+// Upload và gửi file
+const result = await api.uploadAttachment("/path/image.jpg", "threadId");
 
 📊 CƠ SỞ DỮ LIỆU:
 - accounts: Quản lý tài khoản bot
@@ -196,7 +270,7 @@ Hãy phân tích yêu cầu người dùng và đưa ra hành động phù hợp
       },
       {
         role: DeepAiChatRole.USER,
-        content: "agent gửi tin nhắn Hello cho nhóm",
+        content: "Sau đây tôi sẽ gửi các sự kiện tin nhắn, bạn hãy đọc và phân tích chúng rồi phản hồi lại theo yêu conffig tôi đã dạy bạn phía trên(Lưu ý quan trọng: bạn phải trả về JSON đúng định dạng, không được trả lời bằng văn bản thông thường).",
       },
       {
         role: DeepAiChatRole.ASSISTANT,
@@ -211,10 +285,10 @@ Hãy phân tích yêu cầu người dùng và đưa ra hành động phù hợp
         "threadId": null,
         "type": 1
       },
-      "description": "Gửi tin nhắn 'Hello' cho nhóm hiện tại"
+      "description": "Vâng ngài"
     }
   ],
-  "response": "Đã gửi tin nhắn 'Hello' cho nhóm",
+  "response": "vâng ngài",
   "needsConfirmation": false
 }`,
       },
@@ -223,13 +297,13 @@ Hãy phân tích yêu cầu người dùng và đưa ra hành động phù hợp
     try {
       const aiResponse = await chatDeepAi({
         style: DeepAiChatStyleEnum.CHAT,
-        content: `Đọc ngữ cảnh và phản hồi theo các dữ kiện tôi đã cấp:${userInput}`,
+        content: `${userInput}`,
         model: DeepAiModelEnum.STANDARD,
         history: agentHistory,
       });
 
       console.log("AI Response:", aiResponse);
-      
+
       // Parse JSON response từ AI
       let analysisResult;
       try {
@@ -853,7 +927,7 @@ Hãy phân tích yêu cầu người dùng và đưa ra hành động phù hợp
 
       // Phân tích yêu cầu
       const analysis = await this.analyzeUserRequest(userInput);
-      
+
       // Nếu cần xác nhận, hỏi người dùng trước
       if (
         analysis.needsConfirmation &&
