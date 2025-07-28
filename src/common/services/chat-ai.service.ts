@@ -49,6 +49,7 @@ export async function chatDeepAi(data: IChatDeepAi) {
     if (!data) {
       throw new Error("No data returned from DeepAI");
     }
+    
     return {
       content: data,
       history: [...history, { role: DeepAiChatRole.ASSISTANT, content: data }],

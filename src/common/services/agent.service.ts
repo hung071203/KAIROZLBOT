@@ -4,6 +4,7 @@ import { DeepAiChatStyleEnum, DeepAiModelEnum, DeepAiChatRole } from "../enums";
 import { chatDeepAi } from "./chat-ai.service";
 import { AccountService, ConfigService } from "../../database/services";
 import { IChatDeepAiHistory } from "../types/ai.type";
+import removeMarkdown from "remove-markdown";
 
 export interface AgentAction {
   type: "api_call" | "database_query" | "response";
@@ -59,16 +60,16 @@ api.getAllFriends(count?: number, page?: number): Promise<GetAllFriendsResponse>
 // Quản lý nhóm
 api.createGroup(options: CreateGroupOptions): Promise<CreateGroupResponse>
 // CreateGroupOptions: {name?: string, members: string[], avatarSource?: AttachmentSource}
-// CreateGroupResponse: {groupId, sucessMembers, errorMembers, error_data}
-api.addUserToGroup(memberId: string | string[], groupId: string): Promise<AddUserToGroupResponse>
-api.removeUserFromGroup(memberId: string | string[], groupId: string): Promise<"">
-api.changeGroupName(name: string, groupId: string): Promise<ChangeGroupNameResponse>
-api.changeGroupAvatar(avatarSource: AttachmentSource, groupId: string): Promise<"">
-api.changeGroupOwner(memberId: string, groupId: string): Promise<ChangeGroupOwnerResponse>
-api.addGroupDeputy(memberId: string | string[], groupId: string): Promise<"">
-api.removeGroupDeputy(memberId: string | string[], groupId: string): Promise<"">
-api.leaveGroup(groupId: string): Promise<"">
-api.disperseGroup(groupId: string): Promise<"">
+// CreateGroupResponse: {threadId, sucessMembers, errorMembers, error_data}
+api.addUserToGroup(memberId: string | string[], threadId: string): Promise<AddUserToGroupResponse>
+api.removeUserFromGroup(memberId: string | string[], threadId: string): Promise<"">
+api.changeGroupName(name: string, threadId: string): Promise<ChangeGroupNameResponse>
+api.changeGroupAvatar(avatarSource: AttachmentSource, threadId: string): Promise<"">
+api.changeGroupOwner(memberId: string, threadId: string): Promise<ChangeGroupOwnerResponse>
+api.addGroupDeputy(memberId: string | string[], threadId: string): Promise<"">
+api.removeGroupDeputy(memberId: string | string[], threadId: string): Promise<"">
+api.leaveGroup(threadId: string): Promise<"">
+api.disperseGroup(threadId: string): Promise<"">
 
 
  3. MESSAGE APIS
@@ -153,7 +154,7 @@ api.getReminder(reminderId: string): Promise<ReminderInfo>
 api.removeReminder(reminderId: string): Promise<"">
 
 // Bình chọn
-api.createPoll(pollData: CreatePollData, groupId: string): Promise<CreatePollResponse>
+api.createPoll(pollData: CreatePollData, threadId: string): Promise<CreatePollResponse>
 // CreatePollData: {question: string, options: string[]}
 api.getPollDetail(pollId: string): Promise<PollDetailResponse>
 api.lockPoll(pollId: string): Promise<"">
@@ -196,7 +197,7 @@ Urgency.Urgent = 2                 // Tin nhắn khẩn cấp
 
 VÍ DỤ SỬ DỤNG NHANH
 // Gửi tin nhắn đơn giản
-await api.sendMessage("Hello", "userId");
+await api.sendMessage("Hello", "threadId", ThreadType.GROUP);
 
 // Gửi tin nhắn phức tạp
 await api.sendMessage({
@@ -216,6 +217,8 @@ await api.createGroup({
 
 // Upload và gửi file
 const result = await api.uploadAttachment("/path/image.jpg", "threadId");
+
+LƯU Ý: EVENT tôi gửi threadId sẽ là ID của nhóm hiện tại, bạn có thể lấy từ event.threadId.
 
 📊 CƠ SỞ DỮ LIỆU:
 - accounts: Quản lý tài khoản bot
@@ -270,7 +273,8 @@ Hãy phân tích yêu cầu người dùng và đưa ra hành động phù hợp
       },
       {
         role: DeepAiChatRole.USER,
-        content: "Sau đây tôi sẽ gửi các sự kiện tin nhắn, bạn hãy đọc và phân tích chúng rồi phản hồi lại theo yêu conffig tôi đã dạy bạn phía trên(Lưu ý quan trọng: bạn phải trả về JSON đúng định dạng, không được trả lời bằng văn bản thông thường).",
+        content:
+          "Tôi sẽ gửi cho bạn các sự kiện liên quan đến tin nhắn. Nhiệm vụ của bạn là phân tích nội dung và phản hồi lại dưới dạng JSON theo đúng cấu trúc mà tôi đã cấu hình trước đó. Lưu ý quan trọng: bạn phải trả về kết quả dưới dạng JSON hợp lệ, không được sử dụng văn bản mô tả trong phản hồi.",
       },
       {
         role: DeepAiChatRole.ASSISTANT,
@@ -307,22 +311,11 @@ Hãy phân tích yêu cầu người dùng và đưa ra hành động phù hợp
       // Parse JSON response từ AI
       let analysisResult;
       try {
-        // Tìm JSON trong response
-        const jsonMatch = aiResponse.content.match(/\{[\s\S]*?\}$/);
-        if (jsonMatch) {
-          analysisResult = JSON.parse(jsonMatch[0]);
-        } else {
-          // Nếu không có JSON, tìm cách khác
-          const lines = aiResponse.content.split("\n");
-          const jsonLine = lines.find((line) => line.trim().startsWith("{"));
-          if (jsonLine) {
-            analysisResult = JSON.parse(jsonLine.trim());
-          } else {
-            throw new Error("No JSON found");
-          }
-        }
+        const removeMarkdownContent = removeMarkdown(aiResponse.content);
+        console.log("Remove Markdown Content:", removeMarkdownContent);
+
+        analysisResult = JSON.parse(removeMarkdownContent);
       } catch (parseError) {
-        console.log("AI Response:", aiResponse.content);
         // Nếu không parse được JSON, trả về response thông thường
         return {
           message: aiResponse.content,
@@ -400,11 +393,11 @@ Hãy phân tích yêu cầu người dùng và đưa ra hành động phù hợp
 
         case "getGroupInfo":
           const groupResponse = await this.api.getGroupInfo(
-            parameters.groupId || this.event.threadId
+            parameters.threadId || this.event.threadId
           );
           const groupInfo =
             groupResponse.gridInfoMap?.[
-              parameters.groupId || this.event.threadId
+              parameters.threadId || this.event.threadId
             ];
           return groupInfo
             ? `👥 Nhóm: ${groupInfo.name}\n👨‍👩‍👧‍👦 Thành viên: ${
@@ -426,7 +419,7 @@ Hãy phân tích yêu cầu người dùng và đưa ra hành động phù hợp
 
         case "getGroupMembersInfo":
           const membersInfo = await this.api.getGroupMembersInfo(
-            parameters.groupId || this.event.threadId
+            parameters.threadId || this.event.threadId
           );
           const memberCount = Object.keys(membersInfo.profiles || {}).length;
           return `👥 Có ${memberCount} thành viên trong nhóm`;
@@ -550,21 +543,21 @@ Hãy phân tích yêu cầu người dùng và đưa ra hành động phù hợp
         case "changeGroupName":
           await this.api.changeGroupName(
             parameters.name,
-            parameters.groupId || this.event.threadId
+            parameters.threadId || this.event.threadId
           );
           return `✅ Đã đổi tên nhóm thành: ${parameters.name}`;
 
         case "changeGroupAvatar":
           await this.api.changeGroupAvatar(
             parameters.avatarSource,
-            parameters.groupId || this.event.threadId
+            parameters.threadId || this.event.threadId
           );
           return `✅ Đã đổi avatar nhóm`;
 
         case "addUserToGroup":
           const addResult = await this.api.addUserToGroup(
             parameters.userId,
-            parameters.groupId || this.event.threadId
+            parameters.threadId || this.event.threadId
           );
           if (addResult.errorMembers && addResult.errorMembers.length > 0) {
             return `⚠️ Có lỗi khi thêm một số thành viên: ${addResult.errorMembers.join(
@@ -576,48 +569,48 @@ Hãy phân tích yêu cầu người dùng và đưa ra hành động phù hợp
         case "removeUserFromGroup":
           await this.api.removeUserFromGroup(
             parameters.userId,
-            parameters.groupId || this.event.threadId
+            parameters.threadId || this.event.threadId
           );
           return `✅ Đã xóa người dùng khỏi nhóm`;
 
         case "changeGroupOwner":
           const ownerResult = await this.api.changeGroupOwner(
             parameters.memberId,
-            parameters.groupId || this.event.threadId
+            parameters.threadId || this.event.threadId
           );
           return `✅ Đã chuyển quyền admin chính`;
 
         case "addGroupDeputy":
           await this.api.addGroupDeputy(
             parameters.userId,
-            parameters.groupId || this.event.threadId
+            parameters.threadId || this.event.threadId
           );
           return `✅ Đã thêm phó admin`;
 
         case "removeGroupDeputy":
           await this.api.removeGroupDeputy(
             parameters.userId,
-            parameters.groupId || this.event.threadId
+            parameters.threadId || this.event.threadId
           );
           return `✅ Đã xóa phó admin`;
 
         case "leaveGroup":
           const leaveResult = await this.api.leaveGroup(
-            parameters.groupId || this.event.threadId,
+            parameters.threadId || this.event.threadId,
             parameters.silent || false
           );
           return `✅ Đã rời khỏi nhóm`;
 
         case "disperseGroup":
           await this.api.disperseGroup(
-            parameters.groupId || this.event.threadId
+            parameters.threadId || this.event.threadId
           );
           return `✅ Đã giải tán nhóm`;
 
         case "inviteUserToGroups":
           const inviteResult = await this.api.inviteUserToGroups(
             parameters.memberId,
-            parameters.groupId || this.event.threadId
+            parameters.threadId || this.event.threadId
           );
           return `✅ Đã mời người dùng vào nhóm`;
 
@@ -627,13 +620,13 @@ Hãy phân tích yêu cầu người dùng và đưa ra hành động phù hợp
 
         case "enableGroupLink":
           await this.api.enableGroupLink(
-            parameters.groupId || this.event.threadId
+            parameters.threadId || this.event.threadId
           );
           return `✅ Đã bật link mời nhóm`;
 
         case "disableGroupLink":
           await this.api.disableGroupLink(
-            parameters.groupId || this.event.threadId
+            parameters.threadId || this.event.threadId
           );
           return `✅ Đã tắt link mời nhóm`;
 

@@ -11,6 +11,6 @@ export default {
   },
 
   handlerEvent: async (api: API, context: BotContext, event: any) => {
-    console.log(event);
+    // console.log(event);
   },
 };
