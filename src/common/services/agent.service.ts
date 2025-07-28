@@ -1,8 +1,9 @@
 import { API, Message } from "zca-js";
 import { BotContext } from "../types";
-import { DeepAiChatStyleEnum, DeepAiModelEnum } from "../enums";
+import { DeepAiChatStyleEnum, DeepAiModelEnum, DeepAiChatRole } from "../enums";
 import { chatDeepAi } from "./chat-ai.service";
 import { AccountService, ConfigService } from "../../database/services";
+import { IChatDeepAiHistory } from "../types/ai.type";
 
 export interface AgentAction {
   type: "api_call" | "database_query" | "response";
@@ -35,9 +36,8 @@ export class AgentService {
    * Phân tích yêu cầu của người dùng và xác định hành động cần thực hiện
    */
   async analyzeUserRequest(userInput: string): Promise<AgentResponse> {
-    // Tạo prompt hệ thống với danh sách API đầy đủ từ zca-js
-    const systemPrompt = `
-Bạn là một trợ lý AI thông minh cho bot Zalo có thể thực hiện các hành động tự động.
+    // Tạo system prompt với cấu hình agent
+    const systemPrompt = `Bạn là Agent thông minh của KAIROZLBOT - một trợ lý AI có thể thực hiện các hành động tự động trên Zalo.
 
 🔧 CÁC API ZALO CÓ SẴN (với signature chi tiết):
 
@@ -163,31 +163,73 @@ Hãy phân tích yêu cầu người dùng và trả về JSON với format:
   "needsConfirmation": true/false
 }
 
-📝 YÊU CẦU NGƯỜI DÙNG: "${userInput}"
-
-🔍 THÔNG TIN CONTEXT:
-- Thread ID: ${this.event.threadId}
-- Thread Type: ${this.event.type === 0 ? 'User' : 'Group'}
-- User ID: ${this.event.data.uidFrom}
-- Message ID: ${this.event.data.msgId}
-
-Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
+Hãy phân tích yêu cầu người dùng và đưa ra hành động phù hợp. Ví dụ:
 - "thông tin nhóm này" → getGroupInfo
 - "thêm [user] vào nhóm" → addUserToGroup  
 - "tạo nhóm [tên]" → createGroup
 - "đổi tên nhóm thành [tên]" → changeGroupName
 - "ai online" → getAllFriends + getUserInfo
-- "tạo poll [câu hỏi]" → createPoll
-`;
+- "tạo poll [câu hỏi]" → createPoll`;
+
+    // Tạo lịch sử mẫu để AI hiểu vai trò
+    const agentHistory: IChatDeepAiHistory[] = [
+      {
+        role: DeepAiChatRole.USER,
+        content: systemPrompt,
+      },
+      {
+        role: DeepAiChatRole.ASSISTANT,
+        content: `{
+  "intent": "nothing",
+  "actions": [
+    {
+      "type": "",
+      "function": "",
+      "parameters": {
+      },
+      "description": ""
+    }
+  ],
+  "response": "Tôi đã hiểu yêu cầu của bạn. Bạn có thể hỏi tôi bất kỳ câu hỏi nào liên quan đến Zalo hoặc yêu cầu thực hiện các hành động tự động.",
+  "needsConfirmation": false
+}`,
+      },
+      {
+        role: DeepAiChatRole.USER,
+        content: "agent gửi tin nhắn Hello cho nhóm",
+      },
+      {
+        role: DeepAiChatRole.ASSISTANT,
+        content: `{
+  "intent": "gửi tin nhắn",
+  "actions": [
+    {
+      "type": "api_call",
+      "function": "sendMessage",
+      "parameters": {
+        "content": "Hello",
+        "threadId": null,
+        "type": 1
+      },
+      "description": "Gửi tin nhắn 'Hello' cho nhóm hiện tại"
+    }
+  ],
+  "response": "Đã gửi tin nhắn 'Hello' cho nhóm",
+  "needsConfirmation": false
+}`,
+      },
+    ];
 
     try {
       const aiResponse = await chatDeepAi({
         style: DeepAiChatStyleEnum.CHAT,
-        content: systemPrompt,
+        content: `Đọc ngữ cảnh và phản hồi theo các dữ kiện tôi đã cấp:${userInput}`,
         model: DeepAiModelEnum.STANDARD,
-        history: [],
+        history: agentHistory,
       });
 
+      console.log("AI Response:", aiResponse);
+      
       // Parse JSON response từ AI
       let analysisResult;
       try {
@@ -197,8 +239,8 @@ Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
           analysisResult = JSON.parse(jsonMatch[0]);
         } else {
           // Nếu không có JSON, tìm cách khác
-          const lines = aiResponse.content.split('\n');
-          const jsonLine = lines.find(line => line.trim().startsWith('{'));
+          const lines = aiResponse.content.split("\n");
+          const jsonLine = lines.find((line) => line.trim().startsWith("{"));
           if (jsonLine) {
             analysisResult = JSON.parse(jsonLine.trim());
           } else {
@@ -210,24 +252,25 @@ Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
         // Nếu không parse được JSON, trả về response thông thường
         return {
           message: aiResponse.content,
-          actions: [{
-            type: "response",
-            description: "Phản hồi thông thường"
-          }]
+          actions: [
+            {
+              type: "response",
+              description: "Phản hồi thông thường",
+            },
+          ],
         };
       }
 
       return {
         message: analysisResult.response || "Đã phân tích yêu cầu",
         actions: analysisResult.actions || [],
-        needsConfirmation: analysisResult.needsConfirmation || false
+        needsConfirmation: analysisResult.needsConfirmation || false,
       };
-
     } catch (error: any) {
       console.error("Error analyzing user request:", error);
       return {
         message: `❌ Lỗi khi phân tích yêu cầu: ${error.message}`,
-        actions: []
+        actions: [],
       };
     }
   }
@@ -241,7 +284,7 @@ Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
     for (const action of actions) {
       try {
         let result = "";
-        
+
         switch (action.type) {
           case "api_call":
             result = await this.executeApiCall(action);
@@ -275,16 +318,25 @@ Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
         case "getUserInfo":
           const userInfo = await this.api.getUserInfo(parameters.userId);
           const profile = userInfo.changed_profiles?.[parameters.userId];
-          return profile ? 
-            `👤 ${profile.displayName || profile.username} (${profile.userId})` :
-            `❌ Không tìm thấy thông tin user ${parameters.userId}`;
+          return profile
+            ? `👤 ${profile.displayName || profile.username} (${
+                profile.userId
+              })`
+            : `❌ Không tìm thấy thông tin user ${parameters.userId}`;
 
         case "getGroupInfo":
-          const groupResponse = await this.api.getGroupInfo(parameters.groupId || this.event.threadId);
-          const groupInfo = groupResponse.gridInfoMap?.[parameters.groupId || this.event.threadId];
-          return groupInfo ? 
-            `👥 Nhóm: ${groupInfo.name}\n👨‍👩‍👧‍👦 Thành viên: ${groupInfo.totalMember}\n👑 Admin: ${groupInfo.adminIds?.length || 0} người` :
-            `❌ Không tìm thấy thông tin nhóm`;
+          const groupResponse = await this.api.getGroupInfo(
+            parameters.groupId || this.event.threadId
+          );
+          const groupInfo =
+            groupResponse.gridInfoMap?.[
+              parameters.groupId || this.event.threadId
+            ];
+          return groupInfo
+            ? `👥 Nhóm: ${groupInfo.name}\n👨‍👩‍👧‍👦 Thành viên: ${
+                groupInfo.totalMember
+              }\n👑 Admin: ${groupInfo.adminIds?.length || 0} người`
+            : `❌ Không tìm thấy thông tin nhóm`;
 
         case "findUser":
           const foundUser = await this.api.findUser(parameters.phoneNumber);
@@ -299,35 +351,43 @@ Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
           return `🤖 Bot ID: ${ownId}`;
 
         case "getGroupMembersInfo":
-          const membersInfo = await this.api.getGroupMembersInfo(parameters.groupId || this.event.threadId);
+          const membersInfo = await this.api.getGroupMembersInfo(
+            parameters.groupId || this.event.threadId
+          );
           const memberCount = Object.keys(membersInfo.profiles || {}).length;
           return `👥 Có ${memberCount} thành viên trong nhóm`;
 
         case "getAllFriends":
-          const friends = await this.api.getAllFriends(parameters.count, parameters.page);
+          const friends = await this.api.getAllFriends(
+            parameters.count,
+            parameters.page
+          );
           const friendCount = Array.isArray(friends) ? friends.length : 0;
           return `👫 Bạn có ${friendCount} bạn bè`;
 
         case "getAllGroups":
           const groups = await this.api.getAllGroups();
-          const groupCount = groups.gridInfoMap ? Object.keys(groups.gridInfoMap).length : 0;
+          const groupCount = groups.gridInfoMap
+            ? Object.keys(groups.gridInfoMap).length
+            : 0;
           return `👥 Bạn tham gia ${groupCount} nhóm`;
 
         // GỬI TIN NHẮN & NỘI DUNG
         case "sendMessage":
-          const messageContent = typeof parameters.content === 'string' ? 
-            parameters.content : 
-            {
-              msg: parameters.content || parameters.message,
-              styles: parameters.styles,
-              urgency: parameters.urgency,
-              mentions: parameters.mentions,
-              attachments: parameters.attachments,
-              ttl: parameters.ttl
-            };
-          
+          const messageContent =
+            typeof parameters.content === "string"
+              ? parameters.content
+              : {
+                  msg: parameters.content || parameters.message,
+                  styles: parameters.styles,
+                  urgency: parameters.urgency,
+                  mentions: parameters.mentions,
+                  attachments: parameters.attachments,
+                  ttl: parameters.ttl,
+                };
+
           await this.api.sendMessage(
-            messageContent, 
+            messageContent,
             parameters.threadId || this.event.threadId,
             parameters.type || (this.event.type === 0 ? 0 : 1)
           );
@@ -338,7 +398,7 @@ Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
             {
               userId: parameters.userId,
               phoneNumber: parameters.phoneNumber,
-              ttl: parameters.ttl
+              ttl: parameters.ttl,
             },
             parameters.threadId || this.event.threadId,
             parameters.type || (this.event.type === 0 ? 0 : 1)
@@ -350,7 +410,7 @@ Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
             {
               msg: parameters.msg,
               link: parameters.link,
-              ttl: parameters.ttl
+              ttl: parameters.ttl,
             },
             parameters.threadId || this.event.threadId,
             parameters.type || (this.event.type === 0 ? 0 : 1)
@@ -366,7 +426,7 @@ Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
               duration: parameters.duration,
               width: parameters.width,
               height: parameters.height,
-              ttl: parameters.ttl
+              ttl: parameters.ttl,
             },
             parameters.threadId || this.event.threadId,
             parameters.type || (this.event.type === 0 ? 0 : 1)
@@ -377,7 +437,7 @@ Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
           await this.api.sendVoice(
             {
               voiceUrl: parameters.voiceUrl,
-              ttl: parameters.ttl
+              ttl: parameters.ttl,
             },
             parameters.threadId || this.event.threadId,
             parameters.type || (this.event.type === 0 ? 0 : 1)
@@ -390,7 +450,7 @@ Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
               message: parameters.message,
               threadIds: parameters.threadIds || [this.event.threadId],
               ttl: parameters.ttl,
-              reference: parameters.reference
+              reference: parameters.reference,
             },
             parameters.type || (this.event.type === 0 ? 0 : 1)
           );
@@ -409,45 +469,62 @@ Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
           const newGroup = await this.api.createGroup({
             name: parameters.name,
             members: parameters.members || [],
-            avatarSource: parameters.avatarSource
+            avatarSource: parameters.avatarSource,
           });
           return `✅ Đã tạo nhóm: ${parameters.name} (ID: ${newGroup.groupId})`;
 
         case "changeGroupName":
-          await this.api.changeGroupName(parameters.name, parameters.groupId || this.event.threadId);
+          await this.api.changeGroupName(
+            parameters.name,
+            parameters.groupId || this.event.threadId
+          );
           return `✅ Đã đổi tên nhóm thành: ${parameters.name}`;
 
         case "changeGroupAvatar":
-          await this.api.changeGroupAvatar(parameters.avatarSource, parameters.groupId || this.event.threadId);
+          await this.api.changeGroupAvatar(
+            parameters.avatarSource,
+            parameters.groupId || this.event.threadId
+          );
           return `✅ Đã đổi avatar nhóm`;
 
         case "addUserToGroup":
           const addResult = await this.api.addUserToGroup(
-            parameters.userId, 
+            parameters.userId,
             parameters.groupId || this.event.threadId
           );
           if (addResult.errorMembers && addResult.errorMembers.length > 0) {
-            return `⚠️ Có lỗi khi thêm một số thành viên: ${addResult.errorMembers.join(', ')}`;
+            return `⚠️ Có lỗi khi thêm một số thành viên: ${addResult.errorMembers.join(
+              ", "
+            )}`;
           }
           return `✅ Đã thêm người dùng vào nhóm`;
 
         case "removeUserFromGroup":
-          await this.api.removeUserFromGroup(parameters.userId, parameters.groupId || this.event.threadId);
+          await this.api.removeUserFromGroup(
+            parameters.userId,
+            parameters.groupId || this.event.threadId
+          );
           return `✅ Đã xóa người dùng khỏi nhóm`;
 
         case "changeGroupOwner":
           const ownerResult = await this.api.changeGroupOwner(
-            parameters.memberId, 
+            parameters.memberId,
             parameters.groupId || this.event.threadId
           );
           return `✅ Đã chuyển quyền admin chính`;
 
         case "addGroupDeputy":
-          await this.api.addGroupDeputy(parameters.userId, parameters.groupId || this.event.threadId);
+          await this.api.addGroupDeputy(
+            parameters.userId,
+            parameters.groupId || this.event.threadId
+          );
           return `✅ Đã thêm phó admin`;
 
         case "removeGroupDeputy":
-          await this.api.removeGroupDeputy(parameters.userId, parameters.groupId || this.event.threadId);
+          await this.api.removeGroupDeputy(
+            parameters.userId,
+            parameters.groupId || this.event.threadId
+          );
           return `✅ Đã xóa phó admin`;
 
         case "leaveGroup":
@@ -458,7 +535,9 @@ Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
           return `✅ Đã rời khỏi nhóm`;
 
         case "disperseGroup":
-          await this.api.disperseGroup(parameters.groupId || this.event.threadId);
+          await this.api.disperseGroup(
+            parameters.groupId || this.event.threadId
+          );
           return `✅ Đã giải tán nhóm`;
 
         case "inviteUserToGroups":
@@ -473,16 +552,23 @@ Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
           return `✅ Đã tham gia nhóm từ link`;
 
         case "enableGroupLink":
-          await this.api.enableGroupLink(parameters.groupId || this.event.threadId);
+          await this.api.enableGroupLink(
+            parameters.groupId || this.event.threadId
+          );
           return `✅ Đã bật link mời nhóm`;
 
         case "disableGroupLink":
-          await this.api.disableGroupLink(parameters.groupId || this.event.threadId);
+          await this.api.disableGroupLink(
+            parameters.groupId || this.event.threadId
+          );
           return `✅ Đã tắt link mời nhóm`;
 
         // BẠN BÈ & KẾT NỐI NÂNG CAO
         case "sendFriendRequest":
-          await this.api.sendFriendRequest(parameters.message || "Xin chào!", parameters.userId);
+          await this.api.sendFriendRequest(
+            parameters.message || "Xin chào!",
+            parameters.userId
+          );
           return `✅ Đã gửi lời mời kết bạn`;
 
         case "acceptFriendRequest":
@@ -502,7 +588,10 @@ Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
           return `✅ Đã bỏ chặn người dùng`;
 
         case "changeFriendAlias":
-          await this.api.changeFriendAlias(parameters.alias, parameters.friendId);
+          await this.api.changeFriendAlias(
+            parameters.alias,
+            parameters.friendId
+          );
           return `✅ Đã đổi tên hiển thị bạn bè thành: ${parameters.alias}`;
 
         case "getReceivedFriendRequests":
@@ -523,10 +612,10 @@ Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
           const reactionDest = {
             data: {
               msgId: parameters.messageId || parameters.msgId,
-              cliMsgId: parameters.cliMsgId || parameters.messageId
+              cliMsgId: parameters.cliMsgId || parameters.messageId,
             },
             threadId: parameters.threadId || this.event.threadId,
-            type: parameters.type || (this.event.type === 0 ? 0 : 1)
+            type: parameters.type || (this.event.type === 0 ? 0 : 1),
           };
           await this.api.addReaction(parameters.reaction || "👍", reactionDest);
           return `✅ Đã thả cảm xúc`;
@@ -537,10 +626,10 @@ Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
             data: {
               cliMsgId: parameters.cliMsgId || parameters.messageId,
               msgId: parameters.messageId || parameters.msgId,
-              uidFrom: parameters.uidFrom || this.event.data.uidFrom
+              uidFrom: parameters.uidFrom || this.event.data.uidFrom,
             },
             threadId: parameters.threadId || this.event.threadId,
-            type: parameters.type || (this.event.type === 0 ? 0 : 1)
+            type: parameters.type || (this.event.type === 0 ? 0 : 1),
           };
           await this.api.deleteMessage(deleteDest, parameters.onlyMe || false);
           return `✅ Đã xóa tin nhắn`;
@@ -549,7 +638,7 @@ Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
           await this.api.undo(
             {
               msgId: parameters.msgId,
-              cliMsgId: parameters.cliMsgId
+              cliMsgId: parameters.cliMsgId,
             },
             parameters.threadId || this.event.threadId,
             parameters.type || (this.event.type === 0 ? 0 : 1)
@@ -566,15 +655,18 @@ Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
 
         // POLL & BÌNH CHỌN
         case "createPoll":
-          const pollResult = await this.api.createPoll({
-            question: parameters.question,
-            options: parameters.options || ["Có", "Không"],
-            expiredTime: parameters.expiredTime,
-            allowMultiChoices: parameters.allowMultiChoices,
-            allowAddNewOption: parameters.allowAddNewOption,
-            hideVotePreview: parameters.hideVotePreview,
-            isAnonymous: parameters.isAnonymous
-          }, parameters.threadId || this.event.threadId);
+          const pollResult = await this.api.createPoll(
+            {
+              question: parameters.question,
+              options: parameters.options || ["Có", "Không"],
+              expiredTime: parameters.expiredTime,
+              allowMultiChoices: parameters.allowMultiChoices,
+              allowAddNewOption: parameters.allowAddNewOption,
+              hideVotePreview: parameters.hideVotePreview,
+              isAnonymous: parameters.isAnonymous,
+            },
+            parameters.threadId || this.event.threadId
+          );
           return `✅ Đã tạo poll: ${parameters.question}`;
 
         case "getPollDetail":
@@ -587,12 +679,15 @@ Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
 
         // NHẮC NHỞ
         case "createReminder":
-          await this.api.createReminder({
-            title: parameters.title,
-            emoji: parameters.emoji,
-            startTime: parameters.startTime || Date.now() + 3600000,
-            repeat: parameters.repeat
-          }, parameters.threadId || this.event.threadId);
+          await this.api.createReminder(
+            {
+              title: parameters.title,
+              emoji: parameters.emoji,
+              startTime: parameters.startTime || Date.now() + 3600000,
+              repeat: parameters.repeat,
+            },
+            parameters.threadId || this.event.threadId
+          );
           return `⏰ Đã tạo nhắc nhở: ${parameters.title}`;
 
         case "getListReminder":
@@ -604,7 +699,10 @@ Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
           return `📋 Đã lấy danh sách nhắc nhở`;
 
         case "editReminder":
-          await this.api.editReminder(parameters.reminderId, parameters.options);
+          await this.api.editReminder(
+            parameters.reminderId,
+            parameters.options
+          );
           return `✅ Đã sửa nhắc nhở`;
 
         case "removeReminder":
@@ -629,7 +727,10 @@ Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
           return `✅ Đã đổi avatar tài khoản`;
 
         case "setMute":
-          await this.api.setMute(parameters.threadId || this.event.threadId, parameters.muteInfo);
+          await this.api.setMute(
+            parameters.threadId || this.event.threadId,
+            parameters.muteInfo
+          );
           return `🔇 Đã tắt thông báo`;
 
         case "getMute":
@@ -666,11 +767,15 @@ Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
           return `🔗 Đã phân tích link`;
 
         case "getStickers":
-          const stickerList = await this.api.getStickers(parameters.keyword || "");
+          const stickerList = await this.api.getStickers(
+            parameters.keyword || ""
+          );
           return `😄 Đã lấy danh sách sticker`;
 
         case "getStickersDetail":
-          const stickerDetails = await this.api.getStickersDetail(parameters.stickerIds);
+          const stickerDetails = await this.api.getStickersDetail(
+            parameters.stickerIds
+          );
           return `😄 Đã lấy chi tiết ${stickerDetails.length} sticker`;
 
         case "keepAlive":
@@ -682,7 +787,10 @@ Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
           return `🕐 Đã kiểm tra lần online cuối`;
 
         case "custom":
-          const customResult = await this.api.custom(parameters.apiName, parameters.params);
+          const customResult = await this.api.custom(
+            parameters.apiName,
+            parameters.params
+          );
           return `🔧 Đã thực thi API tùy chỉnh: ${parameters.apiName}`;
 
         default:
@@ -713,10 +821,12 @@ Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
 
         case "get_account_info":
           const accountService2 = new AccountService();
-          const account = await accountService2.getAccountById(parameters.accountId);
-          return account ? 
-            `📱 Tài khoản: ${account.accountId} (${account.loginMethod})` :
-            `❌ Không tìm thấy tài khoản`;
+          const account = await accountService2.getAccountById(
+            parameters.accountId
+          );
+          return account
+            ? `📱 Tài khoản: ${account.accountId} (${account.loginMethod})`
+            : `❌ Không tìm thấy tài khoản`;
 
         case "get_configs":
           const configService = new ConfigService();
@@ -743,16 +853,25 @@ Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
 
       // Phân tích yêu cầu
       const analysis = await this.analyzeUserRequest(userInput);
-
+      
       // Nếu cần xác nhận, hỏi người dùng trước
-      if (analysis.needsConfirmation && analysis.actions && analysis.actions.length > 0) {
+      if (
+        analysis.needsConfirmation &&
+        analysis.actions &&
+        analysis.actions.length > 0
+      ) {
         // Lưu pending actions vào context để xử lý sau
         this.storePendingActions(analysis.actions);
-        
-        const actionDescriptions = analysis.actions.map(action => 
-          `🔸 ${action.function || action.type}: ${action.description || 'Thực hiện hành động'}`
-        ).join("\n");
-        
+
+        const actionDescriptions = analysis.actions
+          .map(
+            (action) =>
+              `🔸 ${action.function || action.type}: ${
+                action.description || "Thực hiện hành động"
+              }`
+          )
+          .join("\n");
+
         return `🤔 Tôi sẽ thực hiện các hành động sau:\n${actionDescriptions}\n\n❓ Bạn có muốn tiếp tục không? (Trả lời "có", "yes", "đồng ý" để xác nhận)`;
       }
 
@@ -760,12 +879,11 @@ Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
       if (analysis.actions && analysis.actions.length > 0) {
         const results = await this.executeActions(analysis.actions);
         const combinedResults = results.join("\n");
-        
+
         return `${analysis.message}\n\n📋 Kết quả thực thi:\n${combinedResults}`;
       }
 
       return analysis.message;
-
     } catch (error: any) {
       console.error("Error processing request:", error);
       return `❌ Lỗi xử lý yêu cầu: ${error.message}`;
@@ -776,10 +894,20 @@ Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
    * Kiểm tra xem có phải lệnh xác nhận không
    */
   private isConfirmationCommand(input: string): boolean {
-    const confirmationWords = ['có', 'yes', 'ok', 'đồng ý', 'xác nhận', 'tiếp tục', 'được', 'go'];
-    return confirmationWords.some(word => 
-      input.toLowerCase().trim() === word || 
-      input.toLowerCase().includes(word)
+    const confirmationWords = [
+      "có",
+      "yes",
+      "ok",
+      "đồng ý",
+      "xác nhận",
+      "tiếp tục",
+      "được",
+      "go",
+    ];
+    return confirmationWords.some(
+      (word) =>
+        input.toLowerCase().trim() === word ||
+        input.toLowerCase().includes(word)
     );
   }
 
@@ -789,7 +917,7 @@ Hãy phân tích và đưa ra hành động phù hợp. Ví dụ:
   private storePendingActions(actions: AgentAction[]): void {
     // Trong thực tế, bạn có thể lưu vào database với userId và threadId
     // Ở đây chúng ta chỉ log để demo
-    console.log('Pending actions stored:', actions);
+    console.log("Pending actions stored:", actions);
   }
 
   /**

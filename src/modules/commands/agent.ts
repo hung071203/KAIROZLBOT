@@ -32,7 +32,7 @@ export default {
       const agentService = new AgentService(api, context, event);
       
       // Xử lý yêu cầu thông minh
-      const response = await agentService.processRequest(args.join(" "));
+      const response = await agentService.processRequest(JSON.stringify(event));
       
       // Gửi phản hồi
       api.sendMessage(response, event.threadId);
