@@ -29,7 +29,7 @@ export default {
 
     try {
       // Khởi tạo Agent Service
-      const agentService = new AgentService(api, context, event);
+      const agentService = new AgentService(api, context);
       
       // Xử lý yêu cầu thông minh
       const response = await agentService.processRequest(JSON.stringify(event));

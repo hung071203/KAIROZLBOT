@@ -50,10 +50,11 @@ export class SetupListeners {
         reply.threadId === threadId
     );
 
-    const handler = replyModules.get(handlerReply.name);
+    
 
-    if (handlerReply && handler) {
-      if (event.isSelf && handler.config.self === false) return;
+    if (handlerReply) {
+      const handler = replyModules.get(handlerReply.name);
+      if (event.isSelf && handler?.config?.self === false) return;
       handler.handlerReply(this.api, this.botContext, event, args);
     }
   }
@@ -154,7 +155,7 @@ export class SetupListeners {
     }
 
     this.cooldownMap.set(cooldownKey, now);
-
+    if (msg.isSelf && module?.config?.self === false) return;
     if (isPrefix && "run" in module) {
       await module.run(this.api, this.botContext, msg, args);
     } else if (!isPrefix && "noPrefix" in module) {
