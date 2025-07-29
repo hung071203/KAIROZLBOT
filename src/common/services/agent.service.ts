@@ -1,28 +1,14 @@
 import { API, Message } from "zca-js";
 import { BotContext } from "../types";
-import {
-  DeepAiChatStyleEnum,
-  DeepAiModelEnum,
-  DeepAiChatRole,
-  RoleEnum,
-} from "../enums";
-import { chatDeepAi } from "./chat-ai.service";
-import { AccountService, ConfigService } from "../../database/services";
-import { IChatDeepAiHistory } from "../types/ai.type";
-import removeMarkdown from "remove-markdown";
 import { chat } from "./gemini.service";
-import { text } from "stream/consumers";
-
-export interface AgentAction {
-  type: "api_call" | "database_query" | "response";
-  function?: string;
-  parameters?: any;
-  description?: string;
-}
+import { Content } from "@google/generative-ai";
 
 export interface AgentResponse {
-  response: string;
-  code: string;
+  history?: Content[]; // Lịch sử trò chuyện, nếu cần
+  data: {
+    response: string;
+    code: string;
+  };
 }
 
 /**
@@ -31,9 +17,10 @@ export interface AgentResponse {
 export class AgentService {
   private api: API;
   private context: BotContext;
-  private event: Message;
+  private agentName: string;
+  private history: Content[] = [];
 
-  private basePromt = `sau đây tôi sẽ gửi bạn sự kiện, đọc kỹ event cho tôi(mọi thông tin bạn cần đều có đủ) nếu nội dung tôi muốn nhắn cho bạn ở trong của sự kiện, 
+  private basePromt = `sau đây tôi sẽ gửi bạn sự kiện, đọc kỹ event cho tôi(MỌI THÔNG TIN BẠN CẦN ĐỀU CÓ ĐỦ TRONG EVENT, ĐỪNG BAO GIỜ BẢO BẠN CẦN THÊM THÔNG TIN) nếu nội dung tôi muốn nhắn cho bạn ở trong của sự kiện, 
 đọc và phản hồi theo những cấu hình từ phía trên tôi dạy bạn.
 đây là thông tin về sự kiện này:
 {event}`;
@@ -42,9 +29,19 @@ export class AgentService {
     return this.basePromt.replace("{event}", event);
   }
 
-  constructor(api: API, context: BotContext) {
+  constructor(
+    api: API,
+    context: BotContext,
+    agentName: string,
+    history?: Content[]
+  ) {
     this.api = api;
     this.context = context;
+    this.agentName = agentName;
+
+    if (history && Array.isArray(history)) {
+      this.history = history;
+    }
   }
 
   /**
@@ -52,9 +49,9 @@ export class AgentService {
    */
   async analyzeUserRequest(userInput: string): Promise<AgentResponse> {
     // Tạo system prompt với cấu hình agent
-    const systemPrompt = `Bạn là Agent thông minh của KAIROZLBOT - một trợ lý AI có thể thực hiện các hành động tự động trên Zalo.
+    const systemPrompt = `Bạn tên là ${this.agentName}, 1 người quản lý nhóm thông minh của KAIROZLBOT - một trợ lý có thể thực hiện tất cả các hành động tự động trên Zalo.
 
-🔧 CÁC API ZALO CÓ SẴN (với signature chi tiết):
+🔧 CÁC API ZALO CÓ SẴN (với signature chi tiết, tất cả đều dùng async):
      ZCA-JS API Documentation
 
  1. FRIEND MANAGEMENT
@@ -94,7 +91,7 @@ api.sendMessage(message: MessageContent | string, threadId: string, type?: Threa
   msg: string,                           // Nội dung tin nhắn (bắt buộc)
   styles?: Style[],                      // Định dạng text
   urgency?: Urgency,                     // Mức độ ưu tiên (0: Default, 1: Important, 2: Urgent)
-  quote?: SendMessageQuote,              // Trả lời tin nhắn
+  quote?: SendMessageQuote,              // Rep tin nhắn khác
   mentions?: Mention[],                  // Tag người dùng
   attachments?: AttachmentSource[],      // File đính kèm
   ttl?: number                          // Tự xóa (milliseconds)
@@ -120,7 +117,7 @@ api.sendVoice(options: SendVoiceOptions, threadId: string, type?: ThreadType): P
 api.forwardMessage(params: ForwardMessageParams): Promise<ForwardMessageResponse>
 // ForwardMessageParams: {message: string, threadIds: string[], ttl?: number, reference?: object}
 
-api.deleteMessage(messageId: string, threadId: string, type?: ThreadType): Promise<"">
+api.deleteMessage(dest: { data: { cliMsgId: string, msgId: string, uidFrom: string }, threadId: string, type?: ThreadType }, onlyMe?: boolean): Promise<{ status: number }>
 
 
 4. REACTION & CHAT MANAGEMENT
@@ -148,18 +145,133 @@ api.getOwnId(): Promise<string>
 api.findUser(keyword: string): Promise<FindUserResponse>
 
 
-6. UTILITIES
 // Tiện ích
-api.uploadAttachment(attachment: AttachmentSource, threadId: string, type?: ThreadType): Promise<UploadResponse>
-api.keepAlive(): Promise<"">
+api.uploadAttachment(sources: AttachmentSource | AttachmentSource[], threadId: string, type?: ThreadType): Promise<UploadAttachmentType[]>
+// AttachmentSource = string | {
+    data: Buffer;
+    filename: \${string}.\${string};
+    metadata: {
+        totalSize: number;
+        width?: number;
+        height?: number;
+    };
+};
+// export type UploadAttachmentType = ImageResponse | VideoResponse | FileResponse;
+// type ImageResponse = {
+    normalUrl: string;
+    photoId: string;
+    finished: number;
+    hdUrl: string;
+    thumbUrl: string;
+    clientFileId: string;
+    chunkId: number;
+    fileType: "image";
+    width: number;
+    height: number;
+    totalSize: number;
+    hdSize: number;
+};
+type VideoResponse = {
+    finished: number;
+    clientFileId: number;
+    chunkId: number;
+    fileType: "video";
+    fileUrl: string;
+    fileId: string;
+    checksum: string;
+    totalSize: number;
+    fileName: string;
+};
+type FileResponse = {
+    finished: number;
+    clientFileId: number;
+    chunkId: number;
+    fileType: "others";
+    fileUrl: string;
+    fileId: string;
+    checksum: string;
+    totalSize: number;
+    fileName: string;
+};
+
+api.keepAlive(): Promise<{config_vesion: number;}>
 
 // Tin nhắn nhanh
 api.addQuickMessage(payload: AddQuickMessagePayload): Promise<AddQuickMessageResponse>
 // AddQuickMessagePayload: {keyword: string, title: string}
+//AddQuickMessageResponse = { items: QuickMessage[]; version: number};
+// QuickMessage = {
+    id: number;
+    keyword: string;
+    type: number;
+    createdTime: number;
+    lastModified: number;
+    message: {
+        title: string;
+        params: string | null;
+    };
+    media: null;
+};
+
 api.getQuickMessage(): Promise<QuickMessageResponse>
-api.updateQuickMessage(id: string, payload: UpdateQuickMessagePayload): Promise<"">
-// UpdateQuickMessagePayload: {keyword: string, title: string}
-api.removeQuickMessage(id: string): Promise<"">
+//GetQuickMessageResponse = {
+    cursor: number;
+    version: number;
+    items: {
+        id: number;
+        keyword: string;
+        type: number;
+        createdTime: number;
+        lastModified: number;
+        message: {
+            title: string;
+            params: string | null;
+        };
+        media: {
+            items: QuickMessageMediaItem[];
+        } | null;
+    }[];
+};
+//QuickMessageMediaItem = {
+    type: number;
+    photoId: number;
+    title: string;
+    width: number;
+    height: number;
+    previewThumb: string;
+    rawUrl: string;
+    thumbUrl: string;
+    normalUrl: string;
+    hdUrl: string;
+};
+
+api.updateQuickMessage(updatePayload: UpdateQuickMessagePayload, itemId: number): Promise<UpdateQuickMessageResponse>
+//UpdateQuickMessageResponse = {
+    items: QuickMessage[];
+    version: number;
+};
+//QuickMessage = {
+    id: number;
+    keyword: string;
+    type: number;
+    createdTime: number;
+    lastModified: number;
+    message: {
+        title: string;
+        params: string | null;
+    };
+    media: null;
+};
+//UpdateQuickMessagePayload = {
+    keyword: string;
+    title: string;
+};
+
+api.removeQuickMessage(itemIds: number | number[]): Promise<RemoveQuickMessageResponse>
+//RemoveQuickMessageResponse = {
+    itemIds: number[];
+    version: number;
+}
 
 // Lời nhắc
 api.createReminder(reminderData: CreateReminderData): Promise<CreateReminderResponse>
@@ -168,17 +280,91 @@ api.getReminder(reminderId: string): Promise<ReminderInfo>
 api.removeReminder(reminderId: string): Promise<"">
 
 // Bình chọn
-api.createPoll(pollData: CreatePollData, threadId: string): Promise<CreatePollResponse>
-// CreatePollData: {question: string, options: string[]}
-api.getPollDetail(pollId: string): Promise<PollDetailResponse>
-api.lockPoll(pollId: string): Promise<"">
+api.createPoll(options: CreatePollOptions, threadId: string): Promise<CreatePollResponse>
+// CreatePollOptions = {
+    /**
+     * Question for the poll.
+     */
+    question: string;
+    /**
+     * List of options for the poll.
+     */
+    options: string[];
+    /**
+     * Poll expiration time in milliseconds (0 = no expiration).
+     */
+    expiredTime?: number;
+    /**
+     * Allows multiple choices in the poll.
+     */
+    allowMultiChoices?: boolean;
+    /**
+     * Allows members to add new options to the poll.
+     */
+    allowAddNewOption?: boolean;
+    /**
+     * Hides voting results until the user has voted.
+     */
+    hideVotePreview?: boolean;
+    /**
+     * Hides poll voters (anonymous poll).
+     */
+    isAnonymous?: boolean;
+};
+//CreatePollResponse = {
+    creator: string;
+    question: string;
+    options: {
+        content: string;
+        votes: number;
+        voted: boolean;
+        voters: string[];
+        option_id: number;
+    }[];
+    joined: boolean;
+    closed: boolean;
+    poll_id: string;
+    allow_multi_choices: boolean;
+    allow_add_new_option: boolean;
+    is_anonymous: boolean;
+    poll_type: number;
+    created_time: number;
+    updated_time: number;
+    expired_time: number;
+    is_hide_vote_preview: boolean;
+    num_vote: number;
+};
+
+api.getPollDetail(pollId: string): Promise<PollDetail>
+//PollDetail = {
+    creator: string;
+    question: string;
+    options: PollOptions[];
+    joined: boolean;
+    closed: boolean;
+    poll_id: number;
+    allow_multi_choices: boolean;
+    allow_add_new_option: boolean;
+    is_anonymous: boolean;
+    poll_type: number;
+    created_time: number;
+    updated_time: number;
+    expired_time: number;
+    is_hide_vote_preview: boolean;
+    num_vote: number;
+};
+
+api.lockPoll(pollId: number): Promise<"">
 
 
 7. EVENTS & STATUS
 // Sự kiện cuộc trò chuyện
-api.sendDeliveredEvent(messageId: string, threadId: string): Promise<"">
-api.sendSeenEvent(messageId: string, threadId: string): Promise<"">
-api.sendTypingEvent(threadId: string, isTyping: boolean): Promise<"">
+api.sendDeliveredEvent(isSeen: boolean, messages: SendDeliveredEventMessageParams | SendDeliveredEventMessageParams[], type?: ThreadType): Promise<SendDeliveredEventResponse>
+// SendDeliveredEventMessageParams: { msgId: string, cliMsgId: string, uidFrom: string, idTo: string, msgType: string, st: number, at: number, cmd: number, ts: string | number }
+api.sendSeenEvent(messages: SendSeenEventMessageParams | SendSeenEventMessageParams[], type?: ThreadType): Promise<SendSeenEventResponse>
+// SendSeenEventMessageParams: { msgId: string, cliMsgId: string, uidFrom: string, idTo: string, msgType: string, st: number, at: number, cmd: number, ts: string | number }
+api.sendTypingEvent(threadId: string, type?: ThreadType, destType?: DestType): Promise<{status: number;}>
+//enum DestType { User = 3, Page = 5}
 
 // Cài đặt
 api.updateSettings(settings: SettingsData): Promise<"">
@@ -191,17 +377,41 @@ api.updateSettings(settings: SettingsData): Promise<"">
 //   autoDownload?: boolean,   // Tự động tải file
 //   [key: string]: any        // Các trường mở rộng khác
 // }
-api.updateLang(language: string): Promise<"">
+api.updateLang(language: UpdateLangAvailableLanguages): Promise<"">
+// UpdateLangAvailableLanguages:  VI, EN
 
 // Sticker
 api.getStickers(): Promise<StickersResponse>
-api.getStickersDetail(stickerId: string): Promise<StickerDetail>
+api.getStickersDetail(stickerIds: number | number[]): Promise<StickerDetailResponse>
+// StickerDetailResponse: StickerDetail[]
+// StickerDetail = {
+    id: number;
+    cateId: number;
+    type: number;
+    text: string;
+    uri: string;
+    fkey: number;
+    status: number;
+    stickerUrl: string;
+    stickerSpriteUrl: string;
+    stickerWebpUrl: any;
+    totalFrames: number;
+    duration: number;
+    effectId: number;
+    checksum: string;
+    ext: number;
+    source: number;
+    fss: any;
+    fssInfo: any;
+    version: number;
+    extInfo: any;
+}
 
 
 ENUMS & TYPES
 // ThreadType
-ThreadType.USER = "USER"           // Chat 1-1
-ThreadType.GROUP = "GROUP"         // Chat nhóm
+USER = 0           // Chat 1-1
+GROUP = 1         // Chat nhóm
 
 // Urgency
 Urgency.Default = 0                // Tin nhắn bình thường
@@ -243,16 +453,26 @@ Hãy phân tích yêu cầu người dùng và trả về JSON với format:
 {
   "code": hàm hành động để tôi thực hiện hoặc để trống nếu không cần thực hiện API,
   "response": "phản hồi cho người dùng( đinh dạng string)",
+  "continue": true/false (nếu true thì )
 }
 
 LƯU Ý QUAN TRỌNG:
+- Bạn có toàn quyền dùng các api trên để trò chuyện với cá nhân hay là quản lý nhóm zalo.
+- MUỐN GỬI PHẢN HỒI TỪ CODE cho tôi PHẢI DÙNG api.sendMessage
 - Nếu bạn cần thực hiện code, hãy trả về đoạn code trong trường "code", phản hồi ng dùng truyền vào response(nếu cần).
 - Nếu không cần thực hiện API, chỉ cần trả về phản hồi trong trường "response", "code" để "".
--BẮT BUỘC RESPONSE PHẢI TRẢ VỀ DƯỚI DẠNG JSON, NGOÀI RA KHÔNG ĐƯỢC CÓ KÈM GIẢI THÍCH BÊN NGOÀI JSON
-- CODE PHẢI DÙNG JAVA SCRIPT, KHÔNG ĐƯỢC DÙNG CÁC NGÔN NGỮ KHÁC, TÔI CHẠY BACKEND BẰNG NODEJS,DÙNG EVAL ĐỂ CHẠY CODE BẠN GỬI 
-MUỐN GỬI PHẢN HỒI TỪ CODE PHẢI DÙNG api.sendMessage
+- BẮT BUỘC RESPONSE PHẢI TRẢ VỀ DƯỚI DẠNG JSON, NGOÀI RA KHÔNG ĐƯỢC CÓ KÈM GIẢI THÍCH BÊN NGOÀI JSON
+
+
+- CODE PHẢI DÙNG JAVA SCRIPT, KHÔNG ĐƯỢC DÙNG CÁC NGÔN NGỮ KHÁC, TÔI CHẠY BACKEND BẰNG NODEJS,DÙNG EVAL ĐỂ CHẠY CODE BẠN GỬI
+- CODE DÙNG ASYNC AWAIT, NẾU BẠN CÓ HÀNH ĐỘNG BẤT ĐỒNG BỘ, TUYỆT ĐỐI KHÔNG DÙNG THEN CATCH, CHỈ DÙNG ASYNC AWAIT
+
 - phản hồi như kiểu nói chuyện bạn bè, không đọc lại câu hỏi của người dùng, chỉ cần trả lời theo yêu cầu của người dùng.
-`
+- Đề nghị trả về code nếu bạn cảm thấy cần(hoặc những tác vụ mà bạn không làm dc trực tiếp), kể cả khi đơn giản.
+- QUAN TRỌNG NHẤT, HÃY ĐỌC KỸ CÁCH DÙNG HÀM api.sendMessage, CÁCH TRUYỀN CÁC THAM SỐ VÀO HÀM TẠI VÌ BẠN SẼ DÙNG NÓ NHIỀU và nếu bảo bạn gửi tin nhắn, tùy trường hợp nhưng có thể bạn không cần tin nhắn phản hồi trong response đâu.
+
+- đối với các enum khi dùng trong code chỉ truyền giá trị thôi chứ k truyền enum vào
+`;
     const baseHis = [
       {
         role: "user",
@@ -282,43 +502,46 @@ MUỐN GỬI PHẢN HỒI TỪ CODE PHẢI DÙNG api.sendMessage
         role: "model",
         parts: [
           {
-            text: `{"code": "api.sendMessage({msg: 'chào'}, "00000000000")", "response": "tôi đã làm theo yêu cầu của bạn"}`,
+            text: `{"code": "api.sendMessage({msg: 'chào'}, "00000000000", 0)", "response": "tôi đã làm theo yêu cầu của bạn"}`,
           },
         ],
       },
     ];
 
     try {
-      console.log("Analyzing user request:", userInput);
-
       const aiResponse = await chat({
         content: this.getEventInfo(userInput),
-        his: baseHis,
+        his: this.history.length > 0 ? this.history : baseHis,
       });
+      console.log("AI response:", aiResponse);
 
-      // Parse JSON response từ AI
-      let analysisResult;
-      try {
-        const removeMarkdownContent = removeMarkdown(aiResponse.text);
-
-        analysisResult = JSON.parse(removeMarkdownContent);
-      } catch (parseError) {
-        // Nếu không parse được JSON, trả về response thông thường
-        return {
-          response: aiResponse.text,
-          code: "",
-        };
+      let res = aiResponse.text;
+      // Extract the JSON part from the text
+      if (!aiResponse.text.startsWith("{")) {
+        const jsonStringMatch = res.match(/```json\n([\s\S]*?)\n```/);
+        if (!jsonStringMatch) {
+          throw new Error("Không tìm thấy JSON hợp lệ trong văn bản.");
+        }
+        res = jsonStringMatch[1].trim();
       }
 
+      const json = JSON.parse(res);
+
       return {
-        response: analysisResult.response || "Không có phản hồi",
-        code: analysisResult.code || "",
+        history: aiResponse.his,
+        data: {
+          response: json.response || "Không có phản hồi từ AI.",
+          code: json.code || "",
+        },
       };
     } catch (error: any) {
       console.error("Error analyzing user request:", error);
       return {
-        response: `❌ Lỗi khi phân tích yêu cầu: ${error.message}`,
-        code: "",
+        history: baseHis,
+        data: {
+          response: `❌ Lỗi phân tích yêu cầu: ${error.message}`,
+          code: "",
+        },
       };
     }
   }
@@ -329,22 +552,42 @@ MUỐN GỬI PHẢN HỒI TỪ CODE PHẢI DÙNG api.sendMessage
   async processRequest(userInput: string) {
     try {
       // Phân tích yêu cầu
-      const analysis = await this.analyzeUserRequest(userInput);
+      const res = await this.analyzeUserRequest(userInput);
+      const analysis = res.data;
       console.log("Analysis result:", analysis);
 
       if (analysis.code && analysis.code.trim() !== "") {
+        const functionBody = `
+            return (async () => {
+                try {
+                ${analysis.code}
+                } catch (err) {
+                console.error("❌ Lỗi trong code:", err);
+                api.sendMessage?.({ msg: '❌ Đã xảy ra lỗi khi thực thi lệnh.' }, event.threadId, event.type);
+                }
+            })();
+            `;
+
         const asyncFunction = new Function(
           "api",
           "context",
           "event",
-          `return (async () => { ${analysis.code} })();`
+          functionBody
         );
         asyncFunction(this.api, this.context, JSON.parse(userInput));
       }
-      return analysis.response || "Không có phản hồi từ AI.";
+      return {
+        success: true,
+        response: analysis.response || "Không có phản hồi từ AI.",
+        history: res.history,
+      };
     } catch (error: any) {
       console.error("Error processing request:", error);
-      return `❌ Lỗi xử lý yêu cầu: ${error.message}`;
+      return {
+        success: false,
+        response: `❌ Lỗi khi xử lý yêu cầu: ${error.message}`,
+        history: [],
+      };
     }
   }
 }

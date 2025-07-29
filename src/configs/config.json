@@ -1,6 +1,19 @@
 {
   "botName": "ZCA",
-  "prefix": ".",
-  "admins": ["10001", "10003"],
-  "logging": ["info", "warn", "error", "debug", "success"]
+  "prefix": "!",
+  "admins": [
+    "10001",
+    "10002"
+  ],
+  "logging": [
+    "info",
+    "warn",
+    "error",
+    "debug",
+    "success"
+  ],
+  "logMemoryUsage": {
+    "enabled": true,
+    "interval": 60000
+  }
 }

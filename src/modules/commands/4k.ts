@@ -1,5 +1,5 @@
 import { API, Message } from "zca-js";
-import { BotContext, CommandModule } from "../../common/types";
+import { BotContext, CommandModule, GroupCommands } from "../../common/types";
 import { RoleEnum } from "../../common";
 
 export default {
@@ -18,4 +18,4 @@ export default {
   run: async (api: API, context: BotContext, event: Message, args: string[]) => {
     api.sendMessage('Chức năng này hiện đang được phát triển. Vui lòng thử lại sau.', event.threadId);
   },
-} as CommandModule;
+} as GroupCommands;

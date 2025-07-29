@@ -1,77 +1,69 @@
-import { assert } from "console";
-import { DatabaseManager } from "../database";
 import { Logger } from "../utils/logger.util";
 import * as fs from "fs";
 import * as path from "path";
 
 export class AppConfig {
-  private db: DatabaseManager;
   private configFilePath = path.join(
     process.cwd(),
     "src",
     "configs",
     "config.json"
   );
+  private config: Record<string, any> = {};
 
-  constructor(databaseManager: DatabaseManager) {
-    this.db = databaseManager;
-  }
+  constructor() {}
 
   async initialize() {
     const defaultConfig = {
       botName: "ZCA",
       prefix: "!",
       admins: ["10001", "10002"],
-      logging: ["info", "warn", "error", "debug"],
+      logging: ["info", "warn", "error", "debug", "success"],
+      logMemoryUsage: {
+        enabled: true,
+        interval: 60000, // 60 giây
+      },
     };
-
-    let config: typeof defaultConfig;
 
     // Đọc file nếu tồn tại
     if (fs.existsSync(this.configFilePath)) {
       const fileContent = fs.readFileSync(this.configFilePath, "utf-8");
-      config = JSON.parse(fileContent);
+      this.config = JSON.parse(fileContent);
       Logger.info(`📄 Đã đọc file cấu hình: ${this.configFilePath}`);
     } else {
-      config = defaultConfig;
-      fs.writeFileSync(this.configFilePath, JSON.stringify(config, null, 2));
-      Logger.info(`📄 Đã tạo file cấu hình mới: ${this.configFilePath}`);
-    }
-
-    const fileKeys = Object.keys(config);
-    const dbConfig = await this.db.config.getAllConfigs();
-    const dbKeys = Object.keys(dbConfig);
-
-    // 🔁 Thêm hoặc cập nhật từ file vào DB
-    for (const key of fileKeys) {
-      const value = config[key as keyof typeof config];
-      await this.db.config.setConfig(
-        key,
-        typeof value === "string" ? value : JSON.stringify(value)
+      this.config = defaultConfig;
+      fs.writeFileSync(
+        this.configFilePath,
+        JSON.stringify(this.config, null, 2)
       );
-    }
-
-    // 🗑️ Xóa key trong DB nếu không có trong file
-    for (const key of dbKeys) {
-      if (!fileKeys.includes(key)) {
-        await this.db.config.deleteConfig(key);
-        Logger.info(`🗑️ Đã xóa config không còn dùng trong file: ${key}`);
-      }
+      Logger.info(`📄 Đã tạo file cấu hình mới: ${this.configFilePath}`);
     }
   }
 
-  async getAllConfigs(): Promise<Record<string, any>> {
-    const configs = await this.db.config.findAll(); // hoặc this.repo.find() nếu dùng repo
+  getAllConfigs(): Record<string, any> {
+    return this.config;
+  }
 
-    const result: Record<string, any> = {};
-    for (const { key, value } of configs) {
-      try {
-        result[key] = JSON.parse(value); // nếu là JSON string
-      } catch {
-        result[key] = value; // nếu là string thường
-      }
+  getConfig(key: string): any {
+    return this.config[key];
+  }
+
+  setConfig(key: string, value: any): void {
+    this.config[key] = value;
+    fs.writeFileSync(this.configFilePath, JSON.stringify(this.config, null, 2));
+    Logger.info(`✅ Đã cập nhật cấu hình: ${key} = ${value}`);
+  }
+
+  delConfig(key: string): void {
+    if (this.config[key]) {
+      delete this.config[key];
+      fs.writeFileSync(
+        this.configFilePath,
+        JSON.stringify(this.config, null, 2)
+      );
+      Logger.info(`✅ Đã xóa cấu hình: ${key}`);
+    } else {
+      Logger.warn(`⚠️ Không tìm thấy cấu hình để xóa: ${key}`);
     }
-
-    return result;
   }
 }

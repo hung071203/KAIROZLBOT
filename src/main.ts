@@ -55,12 +55,30 @@ async function startBot() {
     }
 
     // Khởi tạo AppConfig
-    const botConfig = new AppConfig(db);
+    const botConfig = new AppConfig();
     await botConfig.initialize();
     Logger.info("✅ AppConfig đã được khởi tạo thành công");
-    // Lấy tất cả cấu hình từ AppConfig
-    const allConfigs = await botConfig.getAllConfigs();
-    Logger.info("📄 Đã lấy tất cả cấu hình:", allConfigs);
+
+    // Kiểu tra bộ nhớ đã dùng
+    const logMemoryUsage = botConfig.getConfig("logMemoryUsage");
+    if (logMemoryUsage?.enabled) {
+      setInterval(() => {
+        const used = process.memoryUsage();
+        Logger.info("Memory Usage:");
+        Logger.info(`  RSS       : ${(used.rss / 1024 / 1024).toFixed(2)} MB`);
+        Logger.info(
+          `  Heap Total: ${(used.heapTotal / 1024 / 1024).toFixed(2)} MB`
+        );
+        Logger.info(
+          `  Heap Used : ${(used.heapUsed / 1024 / 1024).toFixed(2)} MB`
+        );
+        Logger.info(
+          `  External  : ${(used.external / 1024 / 1024).toFixed(2)} MB`
+        );
+      }, logMemoryUsage?.interval || 60000); // Kiểm tra mỗi 10 giây
+    }else {
+      Logger.info("ℹ️ Tính năng logMemoryUsage đã bị tắt trong cấu hình.");
+    }
 
     // Khởi tạo MultiAccountBotManager
     const botManager = new MultiAccountBotManager(db);
@@ -68,7 +86,7 @@ async function startBot() {
     const accounts = await db.account.getActiveAccounts();
 
     for (let account of accounts) {
-      let cookie: any
+      let cookie: any;
       if (account.loginMethod === "cookie") {
         try {
           cookie = JSON.parse(account.cookie);
@@ -101,7 +119,12 @@ async function startBot() {
 
       if (bot) {
         // Khởi tạo và thiết lập ListenerManager với database context
-        const listenerManager = new ListenerManager(bot, db, allConfigs, botManager);
+        const listenerManager = new ListenerManager(
+          bot,
+          db,
+          botConfig,
+          botManager
+        );
         await listenerManager.initialize();
 
         Logger.info(

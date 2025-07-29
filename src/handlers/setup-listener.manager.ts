@@ -1,5 +1,5 @@
-import { API, Message, Reaction, Undo } from "zca-js";
-import { BotContext, CommandModule, NoPrefixModule } from "../common/types";
+import { API, GroupEvent, Message, Reaction, Undo } from "zca-js";
+import { BotContext, CommandModule, IAnyEvent, NoPrefixModule } from "../common/types";
 import { HandlerManager } from "./handler.manager";
 
 export class SetupListeners {
@@ -21,10 +21,17 @@ export class SetupListeners {
     });
   }
 
-  async EventListener(event: any) {
+  async EventListener(event: GroupEvent) {
     const eventModules = this.handlerManager.getEvents();
     eventModules.forEach((module) => {
       module.handlerEvent(this.api, this.botContext, event);
+    });
+  }
+
+  async AnyEventListener(event: IAnyEvent) {
+    const anyModules = this.handlerManager.getAnyHandlers();
+    anyModules.forEach((module) => {
+      module.anyHandler(this.api, this.botContext, event);
     });
   }
 
@@ -41,7 +48,7 @@ export class SetupListeners {
         .filter((arg: string) => arg.trim() !== "");
     }
 
-    const prefix = this.botContext.config?.prefix || "!";
+    const prefix = this.botContext.appConfig.getConfig('prefix') || "!";
     if (args[0] && args[0].startsWith(prefix)) return;
 
     const handlerReply = this.botContext.handlerReply.find(
@@ -55,7 +62,7 @@ export class SetupListeners {
     if (handlerReply) {
       const handler = replyModules.get(handlerReply.name);
       if (event.isSelf && handler?.config?.self === false) return;
-      handler.handlerReply(this.api, this.botContext, event, args);
+      handler.handlerReply(this.api, this.botContext, event, args, handlerReply);
     }
   }
 
@@ -68,7 +75,7 @@ export class SetupListeners {
     if (handlerReaction && reactionModules.has(handlerReaction.name)) {
       reactionModules
         .get(handlerReaction.name)
-        .handlerReaction(this.api, this.botContext, event);
+        .handlerReaction(this.api, this.botContext, event, handlerReaction);
     }
   }
 
@@ -81,7 +88,7 @@ export class SetupListeners {
     if (handlerUndo && undoModules.has(handlerUndo.name)) {
       undoModules
         .get(handlerUndo.name)
-        .handlerUndo(this.api, this.botContext, event);
+        .handlerUndo(this.api, this.botContext, event, handlerUndo);
     }
   }
 
@@ -89,7 +96,7 @@ export class SetupListeners {
     const commandModules = this.handlerManager.getCommands();
     const noPrefixModules = this.handlerManager.getNoPrefix();
 
-    const prefix = this.botContext.config?.prefix || "!";
+    const prefix = this.botContext.appConfig.getConfig('prefix') || "!";
     const threadId = msg.threadId;
     const content = msg.data.content;
 

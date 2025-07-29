@@ -1,46 +1,131 @@
 import { API, Message } from "zca-js";
-import { BotContext, CommandModule, NoPrefixModule } from "../../common/types";
-import { DeepAiChatStyleEnum, DeepAiModelEnum, RoleEnum } from "../../common";
+import {
+  BotContext,
+  CommandModule,
+  GroupCommands,
+  HandlerConfig,
+  IAnyEvent,
+  NoPrefixModule,
+} from "../../common/types";
+import {
+  AnyEventTypeEnum,
+  DeepAiChatStyleEnum,
+  DeepAiModelEnum,
+  RoleEnum,
+} from "../../common";
 import { chatDeepAi, AgentService } from "../../common/services";
+import { getContent } from "../../common/helpers";
+const agentName = "agent";
 
 export default {
   config: {
-    name: "agent",
+    name: agentName,
     version: "2.0.0",
     credits: "Hung dep trai",
-    description: "AI Agent thông minh có thể tự động thực thi API Zalo và truy vấn database",
+    description:
+      "AI Agent thông minh có thể tự động thực thi API Zalo và truy vấn database",
     tag: "AI",
-    usage: "Gửi yêu cầu tự nhiên cho AI để thực hiện các hành động tự động: thông tin nhóm, quản lý thành viên, tạo poll, v.v.",
+    usage:
+      "Gửi yêu cầu tự nhiên cho AI để thực hiện các hành động tự động: thông tin nhóm, quản lý thành viên, tạo poll, v.v.",
     countDown: 1,
     role: RoleEnum.ALL,
     self: false, // Chỉ dành cho bot cá nhân
   },
 
-  noPrefix: async (
-    api: API,
-    context: BotContext,
-    event: Message,
-    args: string[]
-  ) => {
-    if (args.length === 0) {
-      api.sendMessage("Vui lòng nhập câu hỏi hoặc yêu cầu để AI có thể hỗ trợ bạn.\n\nVí dụ:\n• 'thông tin nhóm này'\n• 'thêm [userId] vào nhóm'\n• 'tạo poll về [chủ đề]'\n• 'ai online'\n• 'đổi tên nhóm thành [tên mới]'", event.threadId);
-      return;
-    }
+  anyHandler: async (api: API, context: BotContext, event: IAnyEvent) => {
+    if (event.type !== AnyEventTypeEnum.MESSAGE) return;
+    const eventData = event.data as Message;
+
+    const msg = getContent(eventData.data.content);
+
+    if (!msg.includes(agentName)) return;
 
     try {
       // Khởi tạo Agent Service
-      const agentService = new AgentService(api, context);
-      
+      const agentService = new AgentService(api, context, agentName);
+
       // Xử lý yêu cầu thông minh
       const response = await agentService.processRequest(JSON.stringify(event));
-      
+
       // Gửi phản hồi
-      api.sendMessage(response, event.threadId);
-      
+      const sendData = await api.sendMessage(
+        { msg: response.response, quote: eventData.data },
+        eventData.threadId,
+        eventData.type
+      );
+
+      if (response.success) {
+        context.handlerReply.push({
+          name: agentName,
+          msgId: String(sendData.message.msgId),
+          threadType: eventData.type,
+          threadId: eventData.threadId,
+          quote: eventData.data,
+          ttl: Date.now() + 1000 * 60 * 60, // TTL 1 giờ
+          data: {
+            history: response.history || [],
+          },
+        });
+      }
     } catch (error: any) {
       console.error("Agent error:", error);
-      api.sendMessage(`❌ Lỗi khi xử lý yêu cầu: ${error.message}`, event.threadId);
+      api.sendMessage(
+        `❌ Lỗi khi xử lý yêu cầu: ${error.message}`,
+        eventData.threadId,
+        eventData.type
+      );
       return;
     }
   },
-} as NoPrefixModule;
+
+  handlerReply: async (
+    api: API,
+    context: BotContext,
+    event: Message,
+    args: string[],
+    handler: HandlerConfig
+  ) => {
+    try {
+      const agentService = new AgentService(
+        api,
+        context,
+        agentName,
+        handler.data?.history || []
+      );
+
+      const response = await agentService.processRequest(JSON.stringify(event));
+
+      // Gửi phản hồi
+      const sendData = await api.sendMessage(
+        { msg: response.response, quote: event.data },
+        event.threadId,
+        event.type
+      );
+
+      if (response.success) {
+        context.handlerReply.push({
+          name: agentName,
+          msgId: String(sendData.message.msgId),
+          threadType: event.type,
+          threadId: event.threadId,
+          quote: event.data,
+          ttl: Date.now() + 1000 * 60 * 60, // TTL 1 giờ
+          data: {
+            history: response.history || [],
+          },
+        });
+      }
+    } catch (error: any) {
+      console.error("Agent reply error:", error);
+      api.sendMessage(
+        {
+          msg: `❌ Lỗi khi xử lý yêu cầu: ${error.message}`,
+          quote: event.data,
+        },
+        event.threadId,
+        event.type
+      );
+      return;
+    }
+  },
+} as GroupCommands;

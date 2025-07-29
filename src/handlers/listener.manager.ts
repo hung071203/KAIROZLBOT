@@ -4,20 +4,23 @@ import { BotContext } from "../common/types";
 import { GroupEvent, Message, Reaction, Undo } from "zca-js";
 import { SetupListeners } from "./setup-listener.manager";
 import { DatabaseManager } from "../database";
+import { AnyEventTypeEnum } from "../common";
+import { AppConfig } from "../configs/app.config";
+import { Logger } from "../utils/logger.util";
 
 export class ListenerManager {
   private bot: KairoZLBot;
   private handlerManager: HandlerManager;
   private botContext: BotContext;
 
-  constructor(bot: KairoZLBot, database?: DatabaseManager, config?: any, botManager?: MultiAccountBotManager) {
+  constructor(bot: KairoZLBot, database?: DatabaseManager, config?: AppConfig, botManager?: MultiAccountBotManager) {
     this.bot = bot;
     this.handlerManager = new HandlerManager();
 
     // Khởi tạo BotContext với database
     this.botContext = {
       db: database,
-      config,
+      appConfig: config,
       botManager,
       handlerReply: [],
       handlerReaction: [],
@@ -27,8 +30,8 @@ export class ListenerManager {
 
   public async initialize(): Promise<void> {
     // Load handlers và events
-    await this.handlerManager.loadHandlers();
-    await this.handlerManager.loadEvents();
+    await this.handlerManager.loadGroupCommands();
+    await this.handlerManager.loadGroupEvents();
 
     // Thiết lập listeners
     this.setupListeners();
@@ -48,27 +51,28 @@ export class ListenerManager {
         setupListeners.ReplyListener(msg);
       }
       setupListeners.MessageListener(msg);
-      setupListeners.EventListener(msg);
+      setupListeners.AnyEventListener({type: AnyEventTypeEnum.MESSAGE, data: msg});
     });
 
     // Lắng nghe sự kiện reaction
     listener.on("reaction", (reaction: Reaction) => {
-      console.log(JSON.stringify(reaction, null, 2));
+      Logger.info(JSON.stringify(reaction, null, 2));
       setupListeners.ReactionListener(reaction);
-      setupListeners.EventListener(reaction);
+      setupListeners.AnyEventListener({type: AnyEventTypeEnum.REACTION, data: reaction});
     });
 
     // Lắng nghe sự kiện nhóm
     listener.on("group_event", (event: GroupEvent) => {
       setupListeners.EventListener(event);
+      setupListeners.AnyEventListener({type: AnyEventTypeEnum.GROUP_EVENT, data: event});
     });
 
     // Lắng nghe sự kiện undo
     listener.on("undo", (undoEvent: Undo) => {
       setupListeners.UndoListener(undoEvent);
-      setupListeners.EventListener(undoEvent);
+      setupListeners.AnyEventListener({type: AnyEventTypeEnum.UNDO, data: undoEvent});
     });
 
-    console.log(`✅ Đã thiết lập listeners cho bot ${this.bot.getAccountId()}`);
+    Logger.info(`✅ Đã thiết lập listeners cho bot ${this.bot.getAccountId()}`);
   }
 }

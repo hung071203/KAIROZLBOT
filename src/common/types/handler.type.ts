@@ -1,94 +1,153 @@
-import { API, Message, ThreadType } from "zca-js";
-import { RoleEnum } from "../enums";
+import { API, GroupEvent, Message, Reaction, TGroupMessage, ThreadType, TMessage, Undo } from "zca-js";
+import { AnyEventTypeEnum, RoleEnum } from "../enums";
 import { HandlerManager } from "../../handlers/handler.manager";
 import { DatabaseManager } from "../../database";
 import { MultiAccountBotManager } from "../../configs";
+import { AppConfig } from "../../configs/app.config";
 
-export interface CommandConfig {
+export interface BaseConfig {
   name: string;
   version: string;
   credits: string;
   description: string;
+}
+
+export interface CommandConfig extends BaseConfig {
   tag: string;
   usage: string;
   countDown: number;
   role: RoleEnum;
-  self: boolean; // lệnh chạy khi bot nhắn
-}
-
-export interface EventConfig {
-  name: string;
-  version: string;
-  credits: string;
-  description: string;
-  tag: string;
+  self: boolean;
 }
 
 export interface HandlerConfig {
   name: string;
-  msgId: string; // ID của tin nhắn đã gửi
+  msgId: string;
   threadType: ThreadType;
-  threadId: string; // ID của nhóm hoặc cá nhân
-  quote?: Message; // Tin nhắn gốc nếu có
-  data?: any; // Dữ liệu bổ sung nếu cần
+  threadId: string;
+  ttl: number; // Thời gian sống của handler
+  quote?: TMessage | TGroupMessage;
+  data?: any;
 }
 
 export interface BotContext {
-  db?: DatabaseManager; // connection hoặc ORM
-  config?: any; // cấu hình bot
-  botManager?: MultiAccountBotManager; // Quản lý nhiều bot
-  handlerManager?: HandlerManager; // Quản lý các handler
-  handlerReply?: HandlerConfig[]; // biến lưu tạm
-  handlerReaction?: HandlerConfig[]; // biến lưu tạm
-  handlerUndo?: HandlerConfig[]; // biến lưu tạm
+  db?: DatabaseManager;
+  appConfig: AppConfig;
+  botManager?: MultiAccountBotManager;
+  handlerManager?: HandlerManager;
+  handlerReply?: HandlerConfig[];
+  handlerReaction?: HandlerConfig[];
+  handlerUndo?: HandlerConfig[];
 }
+
+export interface IMessageEvent {
+  type: AnyEventTypeEnum.MESSAGE;
+  data: Message;
+}
+
+export interface IReactionEvent {
+  type: AnyEventTypeEnum.REACTION;
+  data: Reaction;
+}
+
+export interface IGroupEvent {
+  type: AnyEventTypeEnum.GROUP_EVENT;
+  data: GroupEvent; // Thông tin sự kiện nhóm
+}
+
+export interface IUndoEvent {
+  type: AnyEventTypeEnum.UNDO;
+  data: Undo; // Thông tin sự kiện undo
+}
+
+export type IAnyEvent =
+  | IMessageEvent
+  | IReactionEvent
+  | IGroupEvent
+  | IUndoEvent;
+
+export type CommandHandler = (
+  api: API,
+  context: BotContext,
+  event: Message,
+  args: string[]
+) => Promise<void>;
+
+export type ReplyHandler = (
+  api: API,
+  context: BotContext,
+  event: Message,
+  args: string[],
+  handler: HandlerConfig
+) => Promise<void>;
+
+export type SimpleHandler<T> = (
+  api: API,
+  context: BotContext,
+  event: T
+) => Promise<void>;
+
+export type ActionHandler<T> = (
+  api: API,
+  context: BotContext,
+  event: T,
+  handler: HandlerConfig
+) => Promise<void>;
 
 export interface CommandModule {
   config: CommandConfig;
-  run: (
-    api: API,
-    context: BotContext,
-    event: Message,
-    args: string[]
-  ) => Promise<void>;
+  run: CommandHandler;
 }
 
 export interface ReplyModule {
   config: CommandConfig;
-  handlerReply: (
-    api: API,
-    context: BotContext,
-    event: Message,
-    args: string[]
-  ) => Promise<void>;
-}
-
-export interface EventModule {
-  config: EventConfig;
-  handlerEvent: (api: API, context: BotContext, event: any) => Promise<void>;
+  handlerReply: ReplyHandler;
 }
 
 export interface ReactionModule {
   config: CommandConfig;
-  handlerReaction: (api: API, context: BotContext, event: any) => Promise<void>;
+  handlerReaction: ActionHandler<Reaction>;
 }
 
 export interface UndoModule {
   config: CommandConfig;
-  handlerUndo: (api: API, context: BotContext, event: any) => Promise<void>;
+  handlerUndo: ActionHandler<Undo>;
+}
+
+export interface EventModule {
+  config: BaseConfig;
+  handlerEvent: SimpleHandler<GroupEvent>;
 }
 
 export interface OnLoadModule {
-  config: EventConfig;
+  config: BaseConfig;
   onLoad: (api: API, context: BotContext) => Promise<void>;
+}
+
+export interface AnyModule {
+  config: { name: string };
+  anyHandler: SimpleHandler<IAnyEvent>;
 }
 
 export interface NoPrefixModule {
   config: CommandConfig;
-  noPrefix: (
-    api: API,
-    context: BotContext,
-    event: Message,
-    args: string[]
-  ) => Promise<void>;
+  noPrefix: CommandHandler;
+}
+
+export interface GroupCommands {
+  config: CommandConfig;
+  run?: CommandHandler;
+  handlerReply?: ReplyHandler;
+  handlerReaction?: ActionHandler<Reaction>;
+  handlerUndo?: ActionHandler<Undo>;
+  noPrefix?: CommandHandler;
+  onLoad?: (api: API, context: BotContext) => Promise<void>;
+  anyHandler?: SimpleHandler<IAnyEvent>;
+}
+
+export interface GroupEvents {
+  config: BaseConfig;
+  handlerEvent?: SimpleHandler<GroupEvent>;
+  onLoad?: (api: API, context: BotContext) => Promise<void>;
+  anyHandler?: SimpleHandler<IAnyEvent>;
 }

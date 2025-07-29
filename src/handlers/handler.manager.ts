@@ -1,8 +1,11 @@
 import * as fs from "fs";
 import * as path from "path";
 import {
+  AnyModule,
   CommandModule,
   EventModule,
+  GroupCommands,
+  GroupEvents,
   NoPrefixModule,
   OnLoadModule,
   ReactionModule,
@@ -19,13 +22,14 @@ export class HandlerManager {
   private undos: Map<string, UndoModule> = new Map();
   private onLoads: Map<string, OnLoadModule> = new Map();
   private noPrefix: Map<string, NoPrefixModule> = new Map();
+  private anyHandlers: Map<string, AnyModule> = new Map();
 
   private commandPath: string = path.join(__dirname, "../modules/commands");
   private eventPath: string = path.join(__dirname, "../modules/events");
 
   constructor() {}
 
-  async loadHandlers() {
+  async loadGroupCommands() {
     const files = fs.readdirSync(this.commandPath).filter((file) => {
       return (
         (file.endsWith(".js") || file.endsWith(".ts")) &&
@@ -36,43 +40,87 @@ export class HandlerManager {
     for (const file of files) {
       const commandModulePath = path.join(this.commandPath, file);
       const imported = await import(commandModulePath);
-      const module: CommandModule = imported.default || imported;
+      const module: GroupCommands = imported.default || imported;
 
       if (!module?.config?.name) continue;
 
       const commandName = module.config.name;
-      if (this.commands.has(commandName)) {
-        Logger.warn(`⚠️ Command "${commandName}" đã tồn tại, sẽ bị ghi đè.`);
+      if (module.run) {
+        if (this.commands.has(commandName)) {
+          Logger.warn(`⚠️ Command "${commandName}" đã tồn tại, sẽ bị ghi đè.`);
+        }
+        this.commands.set(commandName, module as CommandModule);
+        Logger.success(`✅ Đã load được command: ${commandName}`);
       }
-      this.commands.set(commandName, module);
-      Logger.success(`✅ Đã load được command: ${commandName}`);
 
       // Nếu có handlerUndo
-      if ("handlerUndo" in module) {
+      if (module.handlerUndo) {
+        if (this.undos.has(commandName)) {
+          Logger.warn(
+            `⚠️ Undo handler "${commandName}" đã tồn tại, sẽ bị ghi đè.`
+          );
+        }
         this.undos.set(commandName, module as UndoModule);
         Logger.success(`✅ Đã load được undo handler: ${commandName}`);
       }
 
-      if ("handlerReply" in module) {
+      if (module.handlerReply) {
+        if (this.replies.has(commandName)) {
+          Logger.warn(
+            `⚠️ Reply handler "${commandName}" đã tồn tại, sẽ bị ghi đè.`
+          );
+        }
         this.replies.set(commandName, module as ReplyModule);
         Logger.success(`✅ Đã load được reply handler: ${commandName}`);
       }
 
       // Nếu có handlerReaction
-      if ("handlerReaction" in module) {
+      if (module.handlerReaction) {
+        if (this.reactions.has(commandName)) {
+          Logger.warn(
+            `⚠️ Reaction handler "${commandName}" đã tồn tại, sẽ bị ghi đè.`
+          );
+        }
         this.reactions.set(commandName, module as ReactionModule);
         Logger.success(`✅ Đã load được reaction handler: ${commandName}`);
       }
 
       // Nếu có noPrefix
-      if ("noPrefix" in module) {
+      if (module.noPrefix) {
+        if (this.noPrefix.has(commandName)) {
+          Logger.warn(
+            `⚠️ NoPrefix handler "${commandName}" đã tồn tại, sẽ bị ghi đè.`
+          );
+        }
         this.noPrefix.set(commandName, module as NoPrefixModule);
         Logger.success(`✅ Đã load được noPrefix handler: ${commandName}`);
+      }
+
+      // Nếu có onLoad
+      if (module.onLoad) {
+        if (this.onLoads.has(commandName)) {
+          Logger.warn(
+            `⚠️ OnLoad handler "${commandName}" đã tồn tại, sẽ bị ghi đè.`
+          );
+        }
+        this.onLoads.set(commandName, module as OnLoadModule);
+        Logger.success(`✅ Đã load được onLoad handler: ${commandName}`);
+      }
+
+      // Nếu có anyHandler
+      if (module.anyHandler) {
+        if (this.anyHandlers.has(commandName)) {
+          Logger.warn(
+            `⚠️ Any handler "${commandName}" đã tồn tại, sẽ bị ghi đè.`
+          );
+        }
+        this.anyHandlers.set(commandName, module as AnyModule);
+        Logger.success(`✅ Đã load được any handler: ${commandName}`);
       }
     }
   }
 
-  async loadEvents() {
+  async loadGroupEvents() {
     const files = fs.readdirSync(this.eventPath).filter((file) => {
       return (
         (file.endsWith(".js") || file.endsWith(".ts")) &&
@@ -82,22 +130,39 @@ export class HandlerManager {
     for (const file of files) {
       const eventModulePath = path.join(this.eventPath, file);
       const imported = await import(eventModulePath);
-      const module: EventModule = imported.default || imported;
+      const module: GroupEvents = imported.default || imported;
 
       if (!module?.config?.name || !module.handlerEvent) continue;
 
       const eventName = module?.config?.name;
-      if (this.events.has(eventName)) {
-        Logger.warn(`⚠️ Event "${eventName}" đã tồn tại, sẽ bị ghi đè.`);
+      if (module.handlerEvent) {
+        if (this.events.has(eventName)) {
+          Logger.warn(`⚠️ Event "${eventName}" đã tồn tại, sẽ bị ghi đè.`);
+        }
+        this.events.set(eventName, module as EventModule);
+        Logger.success(`✅ Đã load được event: ${eventName}`);
       }
 
-      this.events.set(eventName, module);
-      Logger.success(`✅ Đã load được event: ${eventName}`);
-
       // Nếu có onLoad
-      if ("onLoad" in module) {
+      if (module.onLoad) {
+        if (this.onLoads.has(eventName)) {
+          Logger.warn(
+            `⚠️ OnLoad handler "${eventName}" đã tồn tại, sẽ bị ghi đè.`
+          );
+        }
         this.onLoads.set(eventName, module as OnLoadModule);
         Logger.success(`✅ Đã load được onLoad handler: ${eventName}`);
+      }
+
+      // Nếu có anyHandler
+      if (module.anyHandler) {
+        if (this.anyHandlers.has(eventName)) {
+          Logger.warn(
+            `⚠️ Any handler "${eventName}" đã tồn tại, sẽ bị ghi đè.`
+          );
+        }
+        this.anyHandlers.set(eventName, module as AnyModule);
+        Logger.success(`✅ Đã load được any handler: ${eventName}`);
       }
     }
   }
@@ -110,17 +175,13 @@ export class HandlerManager {
     this.replies.clear();
     this.reactions.clear();
     this.undos.clear();
-    this.noPrefix.clear();
-    await this.loadHandlers();
-  }
-
-  /**
-   * Reload events
-   */
-  async reloadEvents() {
     this.events.clear();
     this.onLoads.clear();
-    await this.loadEvents();
+    this.noPrefix.clear();
+    this.anyHandlers.clear();
+    await this.loadGroupCommands();
+    await this.loadGroupEvents();
+    Logger.success("✅ Đã reload tất cả handlers.");
   }
 
   /**
@@ -171,5 +232,12 @@ export class HandlerManager {
    */
   getNoPrefix(): Map<string, NoPrefixModule> {
     return this.noPrefix;
+  }
+
+  /**
+   * Get anyHandlers list
+   */
+  getAnyHandlers(): Map<string, AnyModule> {
+    return this.anyHandlers;
   }
 }
