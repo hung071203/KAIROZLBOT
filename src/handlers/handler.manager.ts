@@ -24,13 +24,12 @@ export class HandlerManager {
   private noPrefix: Map<string, NoPrefixModule> = new Map();
   private anyHandlers: Map<string, AnyModule> = new Map();
 
-  private commandPath: string = path.join(__dirname, "../modules/commands");
-  private eventPath: string = path.join(__dirname, "../modules/events");
 
   constructor() {}
 
   async loadGroupCommands() {
-    const files = fs.readdirSync(this.commandPath).filter((file) => {
+    const commandPath: string = path.join(__dirname, "../modules/commands");
+    const files = fs.readdirSync(commandPath).filter((file) => {
       return (
         (file.endsWith(".js") || file.endsWith(".ts")) &&
         !file.endsWith(".d.ts")
@@ -38,7 +37,7 @@ export class HandlerManager {
     });
 
     for (const file of files) {
-      const commandModulePath = path.join(this.commandPath, file);
+      const commandModulePath = path.join(commandPath, file);
       const imported = await import(commandModulePath);
       const module: GroupCommands = imported.default || imported;
 
@@ -121,14 +120,15 @@ export class HandlerManager {
   }
 
   async loadGroupEvents() {
-    const files = fs.readdirSync(this.eventPath).filter((file) => {
+    const eventPath: string = path.join(__dirname, "../modules/events");
+    const files = fs.readdirSync(eventPath).filter((file) => {
       return (
         (file.endsWith(".js") || file.endsWith(".ts")) &&
         !file.endsWith(".d.ts")
       );
     });
     for (const file of files) {
-      const eventModulePath = path.join(this.eventPath, file);
+      const eventModulePath = path.join(eventPath, file);
       const imported = await import(eventModulePath);
       const module: GroupEvents = imported.default || imported;
 

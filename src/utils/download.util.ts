@@ -11,27 +11,21 @@ interface DownloadOptions {
 }
 
 export function safeBase64(path: string, base64: string) {
-  // Tự loại bỏ prefix nếu có
   const cleanedBase64 = base64.replace(/^data:image\/\w+;base64,/, "");
 
-  fs.writeFile(path, cleanedBase64, "base64", function (err) {
-    if (err) {
-      console.error("Lỗi khi ghi file:", err);
-    } else {
-      console.log("Đã lưu ảnh thành công:", path);
+  fs.writeFileSync(path, cleanedBase64, "base64"); // Ghi đồng bộ
+  console.log("Đã lưu ảnh thành công:", path);
 
-      // Hẹn giờ xóa file sau 1 phút
-      setTimeout(() => {
-        fs.unlink(path, (unlinkErr) => {
-          if (unlinkErr) {
-            console.error("Lỗi khi xóa file:", unlinkErr);
-          } else {
-            console.log("Đã xóa file:", path);
-          }
-        });
-      }, 60000);
-    }
-  });
+  // Hẹn xóa sau 1 phút
+  setTimeout(() => {
+    fs.unlink(path, (unlinkErr) => {
+      if (unlinkErr) {
+        console.error("Lỗi khi xóa file:", unlinkErr);
+      } else {
+        console.log("Đã xóa file:", path);
+      }
+    });
+  }, 60000);
 }
 
 export async function downloadData({

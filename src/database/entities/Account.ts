@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from "typeorm";
+import { RoleBotEnum } from "../../common";
 
 @Entity('accounts')
 export class Account {
@@ -29,6 +30,12 @@ export class Account {
 
   @Column({ default: true })
   isActive: boolean; // Trạng thái hoạt động
+
+  @Column({ type: "date", nullable: true })
+  expirationDate: Date; // Ngày hết hạn đăng nhập
+
+  @Column({ enum: RoleBotEnum, default: RoleBotEnum.FREE })
+  role: RoleBotEnum; // Vai trò của bot
 
   @CreateDateColumn()
   createdAt: Date;

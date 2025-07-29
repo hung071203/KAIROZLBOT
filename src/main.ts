@@ -8,19 +8,16 @@ import * as fs from "fs";
 import * as path from "path";
 import { AppConfig } from "./configs/app.config";
 import { Logger } from "./utils/logger.util";
+import { Account } from "./database";
+import { CACHEDIR } from "./common";
+import { LoginQRCallbackEvent } from "zca-js";
 
 dotenv.config();
 
 async function startBot() {
   try {
     // Kiểm tra và tạo thư mục lưu trữ QR nếu chưa tồn tại
-    const cacheDir = path.join(
-      process.cwd(),
-      "src",
-      "common",
-      "assets",
-      "cache"
-    );
+    const cacheDir = CACHEDIR
     if (!fs.existsSync(cacheDir)) {
       fs.mkdirSync(cacheDir, { recursive: true });
       Logger.info(`📁 Đã tạo thư mục cache: ${cacheDir}`);
@@ -76,72 +73,76 @@ async function startBot() {
           `  External  : ${(used.external / 1024 / 1024).toFixed(2)} MB`
         );
       }, logMemoryUsage?.interval || 60000); // Kiểm tra mỗi 10 giây
-    }else {
+    } else {
       Logger.info("ℹ️ Tính năng logMemoryUsage đã bị tắt trong cấu hình.");
     }
 
     // Khởi tạo MultiAccountBotManager
     const botManager = new MultiAccountBotManager(db);
-
     const accounts = await db.account.getActiveAccounts();
 
     for (let account of accounts) {
-      let cookie: any;
-      if (account.loginMethod === "cookie") {
-        try {
-          cookie = JSON.parse(account.cookie);
-        } catch (error) {
-          Logger.error(
-            `❌ Lỗi khi kiểm tra cookie cho tài khoản ${account.accountId}, tiến hành bỏ qua:`,
-            error
-          );
-          continue;
-        }
-      }
-
-      // Thêm bot mới
-      await botManager.addBot({
-        accountId: account.accountId,
-        loginMethod: account.loginMethod as "cookie" | "qr",
-        zaloConfig: JSON.parse(account.zaloConfig || undefined),
-        proxyConfig: JSON.parse(account.proxyConfig || undefined),
-        // Cookie login data
-        cookie,
-        imei: account.imei,
-        userAgent: account.userAgent,
-        // QR login data
-        qrPath: cacheDir + `/qr_${account.accountId}.png`,
-      });
-      Logger.info(`🤖 Bot ${account.accountId} đã được thêm thành công.`);
-
-      // Khởi tạo HandlerManager cho bot
-      const bot = botManager.getBot(account.accountId);
-
-      if (bot) {
-        // Khởi tạo và thiết lập ListenerManager với database context
-        const listenerManager = new ListenerManager(
-          bot,
-          db,
-          botConfig,
-          botManager
-        );
-        await listenerManager.initialize();
-
-        Logger.info(
-          `🔗 Bot context đã được tạo với database cho ${account.accountId}`
-        );
-
-        // Bắt đầu bot
-        bot.start();
-
-        Logger.info(`✅ Bot ${account.accountId} đã sẵn sàng.`);
-      } else {
-        Logger.error(`❌ Không tìm thấy bot với ID ${account.accountId}`);
-      }
+      await createBot(account, botManager, cacheDir, db, botConfig);
     }
   } catch (error) {
     Logger.error("❌ Lỗi khởi động bot:", error);
     process.exit(1);
+  }
+}
+
+export async function createBot(
+  account: Partial<Account>,
+  botManager: MultiAccountBotManager,
+  cacheDir: string,
+  db: DatabaseManager,
+  botConfig: AppConfig,
+  callback?: (event: LoginQRCallbackEvent) => void
+) {
+  let cookie: any;
+  if (account.loginMethod === "cookie") {
+    try {
+      cookie = JSON.parse(account.cookie);
+    } catch (error) {
+      Logger.error(
+        `❌ Lỗi khi kiểm tra cookie cho tài khoản ${account.accountId}, tiến hành bỏ qua:`,
+        error
+      );
+      return;
+    }
+  }
+  // Thêm bot mới
+  await botManager.addBot({
+    accountId: account.accountId,
+    loginMethod: account.loginMethod as "cookie" | "qr",
+    zaloConfig: account.zaloConfig && JSON.parse(account.zaloConfig),
+    proxyConfig: account.proxyConfig && JSON.parse(account.proxyConfig),
+    // Cookie login data
+    cookie,
+    imei: account.imei,
+    userAgent: account.userAgent,
+    // QR login data
+    qrPath: cacheDir + `/qr_${account.accountId}.png`,
+  }, callback);
+  Logger.info(`🤖 Bot ${account.accountId} đã được thêm thành công.`);
+
+  // Khởi tạo HandlerManager cho bot
+  const bot = botManager.getBot(account.accountId);
+
+  if (bot) {
+    // Khởi tạo và thiết lập ListenerManager với database context
+    const listenerManager = new ListenerManager(bot, db, botConfig, botManager);
+    await listenerManager.initialize();
+
+    Logger.info(
+      `🔗 Bot context đã được tạo với database cho ${account.accountId}`
+    );
+
+    // Bắt đầu bot
+    bot.start();
+
+    Logger.info(`✅ Bot ${account.accountId} đã sẵn sàng.`);
+  } else {
+    Logger.error(`❌ Không tìm thấy bot với ID ${account.accountId}`);
   }
 }
 

@@ -8,3 +8,9 @@ export enum RoleEnum {
   ADMIN = 'ADMIN',
   OWNER = 'OWNER',
 }
+
+export enum RoleBotEnum {
+  ADMIN = 'ADMIN',
+  PRO = 'PRO',
+  FREE = 'FREE',
+}

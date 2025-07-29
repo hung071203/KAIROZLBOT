@@ -1,4 +1,9 @@
-import { Zalo, API, LoginQRCallbackEvent } from "zca-js";
+import {
+  Zalo,
+  API,
+  LoginQRCallbackEvent,
+  LoginQRCallbackEventType,
+} from "zca-js";
 import { HttpProxyAgent } from "http-proxy-agent";
 import nodefetch from "node-fetch";
 import { config } from "dotenv";
@@ -87,8 +92,11 @@ export class KairoZLBot {
         Logger.info(
           `Cập nhật ID tài khoản từ ${this.accountId} thành ${realAccId}`
         );
-        
-        await this.db.account.update({ accountId: this.accountId }, { accountId: realAccId });
+
+        await this.db.account.update(
+          { accountId: this.accountId },
+          { accountId: realAccId }
+        );
         this.accountId = realAccId;
       }
 
@@ -104,7 +112,15 @@ export class KairoZLBot {
    * Đăng nhập bằng QR Code
    * Đơn giản hơn, chỉ cần scan QR code
    */
-  async loginWithQR(options: LoginWithQR = {}) {
+  /**
+   * Đăng nhập bằng QR Code (callback để xử lý từng trạng thái)
+   * @param options
+   * @param callback Callback nhận event QR code (QRCodeGenerated, Scanned, Success, ...)
+   */
+  async loginWithQR(
+    options: LoginWithQR = {},
+    callback?: (event: LoginQRCallbackEvent) => void
+  ) {
     try {
       Logger.info(`📱 [${this.accountId}] Đang tạo QR Code để đăng nhập...`);
 
@@ -113,32 +129,34 @@ export class KairoZLBot {
           userAgent: options.userAgent || "",
           qrPath: options.qrPath || `./qr_${this.accountId}.png`,
         },
-        (qrPath: LoginQRCallbackEvent) => {
-          if (qrPath?.type == 0) {
+        (event: LoginQRCallbackEvent) => {
+          if (callback) {
+            callback(event);
+            return;
+          }
+          // Nếu không có callback, xử lý mặc định như cũ
+          if (event?.type == LoginQRCallbackEventType.QRCodeGenerated) {
             safeBase64(
               options.qrPath,
-              `data:image/png;base64,${qrPath.data["image"]}`
+              `data:image/png;base64,${event.data["image"]}`
             );
-          } else if (qrPath?.type == 2) {
+          } else if (event?.type == LoginQRCallbackEventType.QRCodeScanned) {
             Logger.info(
-              `${qrPath.data["display_name"]} đã quét QR Code, đang đợi xác nhận...`
+              `${event.data["display_name"]} đã quét QR Code, đang đợi xác nhận...`
             );
-          } else if (qrPath?.type == 4) {
-            Logger.info(
-              `Đăng nhập thành công, đang lưu dữ liệu vào db...`
-            );
+          } else if (event?.type == 4) {
+            Logger.info(`Đăng nhập thành công, đang lưu dữ liệu vào db...`);
             this.db.account.update(
-              { accountId: this.accountId },{
-                cookie: JSON.stringify(qrPath.data["cookie"]),
-                imei: qrPath.data["imei"],
-                userAgent: qrPath.data["userAgent"],
-                loginMethod: "cookie"
-              })
-          } else {
-            Logger.warn(
-              "Lỗi không xác định:",
-              JSON.stringify(qrPath, null, 2)
+              { accountId: this.accountId },
+              {
+                cookie: JSON.stringify(event.data["cookie"]),
+                imei: event.data["imei"],
+                userAgent: event.data["userAgent"],
+                loginMethod: "cookie",
+              }
             );
+          } else if (event?.type == LoginQRCallbackEventType.QRCodeExpired) {
+            Logger.warn(`QR Code đã hết hạn, hãy quét lại để đăng nhập tiếp!`);
           }
         }
       );
@@ -147,18 +165,17 @@ export class KairoZLBot {
         Logger.info(
           `Cập nhật ID tài khoản từ ${this.accountId} thành ${realAccId}`
         );
-        
-        await this.db.account.update({ accountId: this.accountId }, { accountId: realAccId });
+        await this.db.account.update(
+          { accountId: this.accountId },
+          { accountId: realAccId }
+        );
         this.accountId = realAccId;
       }
 
       Logger.info(`✅ [${this.accountId}] Đăng nhập thành công bằng QR Code!`);
       return this.api;
     } catch (error) {
-      Logger.error(
-        `❌ [${this.accountId}] Lỗi đăng nhập bằng QR Code:`,
-        error
-      );
+      Logger.error(`❌ [${this.accountId}] Lỗi đăng nhập bằng QR Code:`, error);
       throw error;
     }
   }
@@ -248,21 +265,24 @@ export class MultiAccountBotManager {
   /**
    * Thêm bot mới
    */
-  async addBot(config: {
-    accountId: string;
-    loginMethod: "cookie" | "qr";
-    zaloConfig?: ZaloConfig;
-    proxyConfig?: {
-      enabled: boolean;
-      url: string;
-    };
-    // Cookie login data
-    cookie?: any;
-    imei?: string;
-    userAgent?: string;
-    // QR login data
-    qrPath?: string;
-  }) {
+  async addBot(
+    config: {
+      accountId: string;
+      loginMethod: "cookie" | "qr";
+      zaloConfig?: ZaloConfig;
+      proxyConfig?: {
+        enabled: boolean;
+        url: string;
+      };
+      // Cookie login data
+      cookie?: any;
+      imei?: string;
+      userAgent?: string;
+      // QR login data
+      qrPath?: string;
+    },
+    callback?: (event: LoginQRCallbackEvent) => void
+  ) {
     if (this.bots.has(config.accountId)) {
       throw new Error(`Bot với ID ${config.accountId} đã tồn tại`);
     }
@@ -290,10 +310,13 @@ export class MultiAccountBotManager {
         userAgent: config.userAgent,
       });
     } else {
-      await bot.loginWithQR({
-        userAgent: config.userAgent || "",
-        qrPath: config.qrPath || `./qr_${config.accountId}.png`,
-      });
+      await bot.loginWithQR(
+        {
+          userAgent: config.userAgent || "",
+          qrPath: config.qrPath || `./qr_${config.accountId}.png`,
+        },
+        callback
+      );
     }
 
     this.bots.set(config.accountId, bot);
@@ -321,11 +344,11 @@ export class MultiAccountBotManager {
    */
   removeBot(accountId: string) {
     const bot = this.bots.get(accountId);
-    if (bot) {
-      bot.stop();
-      this.bots.delete(accountId);
-      Logger.info(`✅ Đã xóa bot ${accountId}`);
-    }
+    if (!bot) throw new Error(`Không tìm thấy bot với ID ${accountId}`);
+
+    bot.stop();
+    this.bots.delete(accountId);
+    Logger.info(`✅ Đã xóa bot ${accountId}`);
   }
 
   /**
