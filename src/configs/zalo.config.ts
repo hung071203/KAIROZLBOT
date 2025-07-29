@@ -1,4 +1,4 @@
-import { Zalo, API } from "zca-js";
+import { Zalo, API, LoginQRCallbackEvent } from "zca-js";
 import { HttpProxyAgent } from "http-proxy-agent";
 import nodefetch from "node-fetch";
 import { config } from "dotenv";
@@ -113,7 +113,7 @@ export class KairoZLBot {
           userAgent: options.userAgent || "",
           qrPath: options.qrPath || `./qr_${this.accountId}.png`,
         },
-        (qrPath: any) => {
+        (qrPath: LoginQRCallbackEvent) => {
           if (qrPath?.type == 0) {
             safeBase64(
               options.qrPath,
