@@ -36,9 +36,11 @@ export default {
     if (event.type !== AnyEventTypeEnum.MESSAGE) return;
     const eventData = event.data as Message;
 
+    if(eventData.isSelf) return; // Bỏ qua tin nhắn của chính bot
+
     const msg = getContent(eventData.data.content);
 
-    if (!msg.includes(agentName)) return;
+    if (!msg || !msg.includes(agentName)) return;
 
     try {
       // Khởi tạo Agent Service
@@ -86,6 +88,9 @@ export default {
     handler: HandlerConfig
   ) => {
     try {
+      const content = getContent(event.data.content);
+      if(!content || content.includes(agentName)) return;
+
       const agentService = new AgentService(
         api,
         context,

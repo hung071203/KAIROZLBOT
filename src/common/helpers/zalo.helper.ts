@@ -6,9 +6,9 @@ export function getContent(
   let msg = "";
   if (typeof content == "string") {
     msg = content;
-  } else if (typeof content === "object") {
+  } else if (typeof content === "object" && typeof content.title === "string") {
     msg = content.title;
-  } else msg = JSON.stringify(content);
+  } else return null
 
   return msg;
 }

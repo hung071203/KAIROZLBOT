@@ -42,7 +42,7 @@ export class SetupListeners {
     let args: string[] = [];
     if (typeof content == "string") {
       args = content.split(" ").filter((arg: string) => arg.trim() !== "");
-    } else if (typeof content == "object") {
+    } else if (typeof content == "object" && typeof content.title === "string") {
       args = content.title
         .split(" ")
         .filter((arg: string) => arg.trim() !== "");
@@ -108,6 +108,8 @@ export class SetupListeners {
       typeof content.title === "string"
     ) {
       args = content.title.split(" ").filter((arg) => arg.trim() !== "");
+    } else {
+      return;
     }
 
     if (args.length === 0) return;

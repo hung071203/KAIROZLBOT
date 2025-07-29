@@ -1,5 +1,6 @@
 import { API, Message } from "zca-js";
-import { BotContext, EventModule } from "../../common/types";
+import { BotContext, EventModule, GroupEvents } from "../../common/types";
+import { Logger } from "../../utils/logger.util";
 
 export default {
   config: {
@@ -10,7 +11,8 @@ export default {
     tag: "core",
   },
 
-  handlerEvent: async (api: API, context: BotContext, event: any) => {
-    // console.log(event);
-  },
-};
+  handlerEvent: async (api: API, context: BotContext, event: any) => {},
+  anyHandler: async (api: API, context: BotContext, event: any) => {
+    Logger.debug("Received any event:", JSON.stringify(event));
+  }
+}as GroupEvents;

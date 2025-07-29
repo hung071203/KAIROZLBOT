@@ -2,6 +2,7 @@ import { API, Message } from "zca-js";
 import { BotContext } from "../types";
 import { chat } from "./gemini.service";
 import { Content } from "@google/generative-ai";
+import { Logger } from "../../utils/logger.util";
 
 export interface AgentResponse {
   history?: Content[]; // Lịch sử trò chuyện, nếu cần
@@ -20,13 +21,21 @@ export class AgentService {
   private agentName: string;
   private history: Content[] = [];
 
-  private basePromt = `sau đây tôi sẽ gửi bạn sự kiện, đọc kỹ event cho tôi(MỌI THÔNG TIN BẠN CẦN ĐỀU CÓ ĐỦ TRONG EVENT, ĐỪNG BAO GIỜ BẢO BẠN CẦN THÊM THÔNG TIN) nếu nội dung tôi muốn nhắn cho bạn ở trong của sự kiện, 
-đọc và phản hồi theo những cấu hình từ phía trên tôi dạy bạn.
-đây là thông tin về sự kiện này:
+  private basePrompt = `Tôi sẽ gửi bạn một sự kiện (event). Hãy đọc kỹ và phản hồi đúng theo nội dung sự kiện.
+
+⚠️ Lưu ý quan trọng:
+- MỌI THÔNG TIN BẠN CẦN đều đã có trong event.
+- ĐỪNG BAO GIỜ yêu cầu thêm thông tin ngoài event.
+- Nếu nội dung tôi muốn nhắn cho bạn nằm trong event, bạn phải phản hồi chính xác theo nội dung đó.
+- có code bắt bộc phải dùng await nếu có gọi bất đông bộ, kể cả không cần trả về dữ liệu từ nó.
+
+Bạn phải phản hồi dựa trên các cấu hình mà tôi đã hướng dẫn trước đó.
+
+Dưới đây là thông tin về sự kiện:
 {event}`;
 
   getEventInfo(event) {
-    return this.basePromt.replace("{event}", event);
+    return this.basePrompt.replace("{event}", event);
   }
 
   constructor(
@@ -69,19 +78,35 @@ api.getAllFriends(count?: number, page?: number): Promise<GetAllFriendsResponse>
 
  2. GROUP MANAGEMENT
 // Quản lý nhóm
-api.createGroup(options: CreateGroupOptions): Promise<CreateGroupResponse>
-// CreateGroupOptions: {name?: string, members: string[], avatarSource?: AttachmentSource}
-// CreateGroupResponse: {threadId, sucessMembers, errorMembers, error_data}
-api.addUserToGroup(memberId: string | string[], threadId: string): Promise<AddUserToGroupResponse>
-api.removeUserFromGroup(memberId: string | string[], threadId: string): Promise<"">
-api.changeGroupName(name: string, threadId: string): Promise<ChangeGroupNameResponse>
-api.changeGroupAvatar(avatarSource: AttachmentSource, threadId: string): Promise<"">
-api.changeGroupOwner(memberId: string, threadId: string): Promise<ChangeGroupOwnerResponse>
-api.addGroupDeputy(memberId: string | string[], threadId: string): Promise<"">
-api.removeGroupDeputy(memberId: string | string[], threadId: string): Promise<"">
-api.leaveGroup(threadId: string): Promise<"">
-api.disperseGroup(threadId: string): Promise<"">
+api.createGroup(options: CreateGroupOptions): Promise<CreateGroupResponse> 
+// ✅ Tạo nhóm chat mới với tên, thành viên và ảnh đại diện tùy chọn
 
+api.addUserToGroup(memberId: string | string[], threadId: string): Promise<AddUserToGroupResponse> 
+// ➕ Thêm một hoặc nhiều thành viên vào nhóm đã tồn tại
+
+api.removeUserFromGroup(memberId: string | string[], threadId: string): Promise<""> 
+// ➖ Xoá một hoặc nhiều thành viên khỏi nhóm
+
+api.changeGroupName(name: string, threadId: string): Promise<ChangeGroupNameResponse> 
+// ✏️ Đổi tên nhóm
+
+api.changeGroupAvatar(avatarSource: AttachmentSource, threadId: string): Promise<""> 
+// 🖼️ Đổi ảnh đại diện của nhóm
+
+api.changeGroupOwner(memberId: string, threadId: string): Promise<ChangeGroupOwnerResponse> 
+// 👑 Chuyển quyền trưởng nhóm cho một thành viên khác
+
+api.addGroupDeputy(memberId: string | string[], threadId: string): Promise<""> 
+// 🎖️ Thêm một hoặc nhiều thành viên làm phó nhóm
+
+api.removeGroupDeputy(memberId: string | string[], threadId: string): Promise<""> 
+// ❌ Gỡ quyền phó nhóm của một hoặc nhiều thành viên
+
+api.leaveGroup(threadId: string): Promise<""> 
+// 🚪 Rời khỏi nhóm (dành cho chính mình)
+
+api.disperseGroup(threadId: string): Promise<""> 
+// 💥 Giải tán nhóm (chỉ trưởng nhóm mới có quyền)
 
  3. MESSAGE APIS
 // Gửi tin nhắn
@@ -513,7 +538,7 @@ LƯU Ý QUAN TRỌNG:
         content: this.getEventInfo(userInput),
         his: this.history.length > 0 ? this.history : baseHis,
       });
-      console.log("AI response:", aiResponse);
+      Logger.debug("AI response:", aiResponse);
 
       let res = aiResponse.text;
       // Extract the JSON part from the text
@@ -535,7 +560,7 @@ LƯU Ý QUAN TRỌNG:
         },
       };
     } catch (error: any) {
-      console.error("Error analyzing user request:", error);
+      Logger.error("Error analyzing user request:", error);
       return {
         history: baseHis,
         data: {
@@ -554,7 +579,7 @@ LƯU Ý QUAN TRỌNG:
       // Phân tích yêu cầu
       const res = await this.analyzeUserRequest(userInput);
       const analysis = res.data;
-      console.log("Analysis result:", analysis);
+      Logger.debug("Analysis result:", analysis);
 
       if (analysis.code && analysis.code.trim() !== "") {
         const functionBody = `
@@ -562,7 +587,7 @@ LƯU Ý QUAN TRỌNG:
                 try {
                 ${analysis.code}
                 } catch (err) {
-                console.error("❌ Lỗi trong code:", err);
+                Logger.error("❌ Lỗi trong code:", err);
                 api.sendMessage?.({ msg: '❌ Đã xảy ra lỗi khi thực thi lệnh.' }, event.threadId, event.type);
                 }
             })();
@@ -574,7 +599,18 @@ LƯU Ý QUAN TRỌNG:
           "event",
           functionBody
         );
-        asyncFunction(this.api, this.context, JSON.parse(userInput));
+        asyncFunction(this.api, this.context, JSON.parse(userInput)).catch(
+          (err: any) => {
+            this.api.sendMessage(
+              {
+                msg: `❌ Đã xảy ra lỗi khi thực thi lệnh: ${err.message}`,
+                quote: JSON.parse(userInput).data,
+              },
+              JSON.parse(userInput).threadId,
+              JSON.parse(userInput).type
+            );
+          }
+        );
       }
       return {
         success: true,
@@ -582,7 +618,7 @@ LƯU Ý QUAN TRỌNG:
         history: res.history,
       };
     } catch (error: any) {
-      console.error("Error processing request:", error);
+      Logger.error("Error processing request:", error);
       return {
         success: false,
         response: `❌ Lỗi khi xử lý yêu cầu: ${error.message}`,
