@@ -1,6 +1,6 @@
 import { API, Message } from "zca-js";
 import { BotContext, CommandModule, GroupCommands } from "../../common/types";
-import { RoleEnum } from "../../common";
+import { RoleBotEnum, RoleUserEnum } from "../../common";
 
 export default {
   config: {
@@ -11,11 +11,20 @@ export default {
     tag: "AI",
     usage: "4k rep hình muốn upscale",
     countDown: 1,
-    role: RoleEnum.ALL,
+    roleUser: RoleUserEnum.ALL,
+    roleBot: RoleBotEnum.PRO,
     self: true, // Chỉ dành cho bot cá nhân
   },
 
-  run: async (api: API, context: BotContext, event: Message, args: string[]) => {
-    api.sendMessage('Chức năng này hiện đang được phát triển. Vui lòng thử lại sau.', event.threadId);
+  run: async (
+    api: API,
+    context: BotContext,
+    event: Message,
+    args: string[]
+  ) => {
+    api.sendMessage(
+      "Chức năng này hiện đang được phát triển. Vui lòng thử lại sau.",
+      event.threadId
+    );
   },
 } as GroupCommands;

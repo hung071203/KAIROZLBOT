@@ -5,7 +5,7 @@ import {
   Message,
 } from "zca-js";
 import { BotContext, CommandModule, GroupCommands } from "../../common/types";
-import { CACHEDIR, RoleEnum } from "../../common";
+import { CACHEDIR, RoleBotEnum, RoleUserEnum } from "../../common";
 import { createBot } from "../../main";
 import { safeBase64 } from "../../utils/download.util";
 import * as fs from "fs";
@@ -20,7 +20,8 @@ export default {
     tag: "AI",
     usage: "4k rep hình muốn upscale",
     countDown: 1,
-    role: RoleEnum.ALL,
+    roleUser: RoleUserEnum.ALL,
+    roleBot: RoleBotEnum.FREE,
     self: true, // Chỉ dành cho bot cá nhân
   },
 
@@ -60,7 +61,39 @@ export default {
           break;
         }
         case "stopall": {
-          await stopAll(api, context, event);
+          process.exit(0);
+        }
+        case "reload": {
+          await reload(api, context, event, args[1]);
+          break;
+        }
+        case "delete": {
+          await deleteAcc(api, context, event, args[1]);
+          break;
+        }
+        case "extend": {
+          await extendAcc(api, context, event, args.slice(1));
+          break;
+        }
+        case "role": {
+          await setRole(api, context, event, args.slice(1));
+          break;
+        }
+        case "help": {
+          api.sendMessage(
+            `📜 Danh sách lệnh:\n\n` +
+              `- \`add\`: Tạo tài khoản mới bằng QR.\n` +
+              `- \`list\`: Hiển thị danh sách tài khoản.\n` +
+              `- \`runner\`: Hiển thị danh sách bot đang chạy.\n` +
+              `- \`stop <id>\`: Dừng bot theo ID.\n` +
+              `- \`stopall\`: Dừng tất cả bot và thoát chương trình.\n` +
+              `- \`reload <id|all>\`: Tải lại bot theo ID hoặc tất cả bot.\n` +
+              `- \`delete <id>\`: Xóa tài khoản theo ID.\n` +
+              `- \`extend <id> <days|inf>\`: Gia hạn tài khoản theo ID và số ngày (hoặc 'inf' cho không giới hạn).\n` +
+              `- \`role <id> <role>\`: Cập nhật vai trò của tài khoản theo ID và vai trò mới.`,
+            event.threadId,
+            event.type
+          );
           break;
         }
         default:
@@ -110,113 +143,108 @@ async function addAcc(api: API, context: BotContext, event: Message) {
   // Tạo tài khoản mẫu
   await context.db.account.create(account);
 
+  const { handlerReaction, handlerReply, handlerUndo, ...addContext } = context;
+
   // Thêm tài khoản mới
-  await createBot(
-    account,
-    context.botManager,
-    CACHEDIR,
-    context.db,
-    context.appConfig,
-    (e: LoginQRCallbackEvent) => {
-      const type = e.type;
+  await createBot(account, addContext, CACHEDIR, (e: LoginQRCallbackEvent) => {
+    const type = e.type;
 
-      console.log(e);
+    console.log(e);
 
-      switch (type) {
-        case LoginQRCallbackEventType.QRCodeGenerated: {
-          const qrPath = CACHEDIR + `/qr_${account.accountId}.png`;
-          safeBase64(qrPath, `data:image/png;base64,${e.data.image}`);
+    switch (type) {
+      case LoginQRCallbackEventType.QRCodeGenerated: {
+        const qrPath = CACHEDIR + `/qr_${account.accountId}.png`;
+        safeBase64(qrPath, `data:image/png;base64,${e.data.image}`);
 
-          const buffer = fs.readFileSync(qrPath); // Đọc file ảnh đồng bộ
-          const stats = fs.statSync(qrPath); // Lấy thông tin file
+        const buffer = fs.readFileSync(qrPath); // Đọc file ảnh đồng bộ
+        const stats = fs.statSync(qrPath); // Lấy thông tin file
 
-          api.sendMessage(
-            {
-              msg: `📸 Vui lòng quét mã QR để đăng nhập.`,
-              quote: event.data,
-              attachments: [
-                {
-                  data: buffer,
-                  filename: `qr_${account.accountId}.png`,
-                  metadata: {
-                    totalSize: stats.size,
-                  },
+        api.sendMessage(
+          {
+            msg: `📸 Vui lòng quét mã QR để đăng nhập.`,
+            quote: event.data,
+            attachments: [
+              {
+                data: buffer,
+                filename: `qr_${account.accountId}.png`,
+                metadata: {
+                  totalSize: stats.size,
                 },
-              ],
-            },
-            event.threadId,
-            event.type
-          );
+              },
+            ],
+          },
+          event.threadId,
+          event.type
+        );
 
-          break;
-        }
-        case LoginQRCallbackEventType.QRCodeDeclined: {
-          api.sendMessage(
-            {
-              msg: `❌ Bạn đã từ chối mã QR. Vui lòng thử lại.`,
-              quote: event.data,
-            },
-            event.threadId,
-            event.type
-          );
-          context.db.account.delete({
-            accountId: account.accountId,
-          });
-          break;
-        }
-        case LoginQRCallbackEventType.QRCodeScanned: {
-          api.sendMessage(
-            {
-              msg: `✅ Mã QR đã được quét bởi tài khoản có tên ${e.data.display_name}. Vui lòng chờ đăng nhập.`,
-              quote: event.data,
-            },
-            event.threadId,
-            event.type
-          );
-          break;
-        }
-        case LoginQRCallbackEventType.QRCodeExpired: {
-          api.sendMessage(
-            {
-              msg: `❌ Mã QR đã hết hạn. Vui lòng thử lại.`,
-              quote: event.data,
-            },
-            event.threadId,
-            event.type
-          );
-          context.db.account.delete({
-            accountId: account.accountId,
-          });
-          break;
-        }
-        case LoginQRCallbackEventType.GotLoginInfo: {
-          api.sendMessage(
-            {
-              msg: `✅ Đăng nhập thành công với tài khoản ${e.data.imei}.`,
-              quote: event.data,
-            },
-            event.threadId,
-            event.type
-          );
-          // Cập nhật thông tin tài khoản
-          context.db.account.update(
-            {
-              accountId: account.accountId,
-            },
-            {
-              cookie: JSON.stringify(e.data.cookie),
-              imei: e.data.imei,
-              userAgent: e.data.userAgent,
-              loginMethod: "cookie", // Cập nhật phương thức đăng nhập
-            }
-          );
-          break;
-        }
-        default:
-          break;
+        break;
       }
+      case LoginQRCallbackEventType.QRCodeDeclined: {
+        api.sendMessage(
+          {
+            msg: `❌ Bạn đã từ chối mã QR. Vui lòng thử lại.`,
+            quote: event.data,
+          },
+          event.threadId,
+          event.type
+        );
+        context.db.account.delete({
+          accountId: account.accountId,
+        });
+        break;
+      }
+      case LoginQRCallbackEventType.QRCodeScanned: {
+        api.sendMessage(
+          {
+            msg: `✅ Mã QR đã được quét bởi tài khoản có tên ${e.data.display_name}. Vui lòng chờ đăng nhập.`,
+            quote: event.data,
+          },
+          event.threadId,
+          event.type
+        );
+        break;
+      }
+      case LoginQRCallbackEventType.QRCodeExpired: {
+        api.sendMessage(
+          {
+            msg: `❌ Mã QR đã hết hạn. Vui lòng thử lại.`,
+            quote: event.data,
+          },
+          event.threadId,
+          event.type
+        );
+        context.db.account.delete({
+          accountId: account.accountId,
+        });
+        break;
+      }
+      case LoginQRCallbackEventType.GotLoginInfo: {
+        api.sendMessage(
+          {
+            msg: `✅ Đăng nhập thành công với tài khoản ${e.data.imei}.`,
+            quote: event.data,
+          },
+          event.threadId,
+          event.type
+        );
+        // Cập nhật thông tin tài khoản
+        context.db.account.update(
+          {
+            accountId: account.accountId,
+          },
+          {
+            cookie: JSON.stringify(e.data.cookie),
+            imei: e.data.imei,
+            userAgent: e.data.userAgent,
+            loginMethod: "cookie", // Cập nhật phương thức đăng nhập
+          }
+        );
+        break;
+      }
+      default:
+        break;
     }
-  );
+  });
 }
 
 async function listAcc(api: API, context: BotContext, event: Message) {
@@ -224,7 +252,8 @@ async function listAcc(api: API, context: BotContext, event: Message) {
   if (accounts.length === 0) {
     api.sendMessage(
       "📃 Hiện tại không có tài khoản nào trong hệ thống.",
-      event.threadId
+      event.threadId,
+      event.type
     );
   } else {
     const accountList = accounts
@@ -235,7 +264,9 @@ async function listAcc(api: API, context: BotContext, event: Message) {
         return [
           `🔹 Tài khoản #${index + 1}`,
           `• ID: ${acc.id}`,
-          `• ZaloID: ${acc.accountId}`,
+          `• ZaloID: ${acc.accountId}${
+            api.getOwnId() === acc.accountId ? " (Bot hiện tại)" : ""
+          }`,
           `• Đăng nhập: ${acc.loginMethod.toUpperCase()}`,
           `• Trạng thái: ${
             acc.isActive ? "✅ Hoạt động" : "❌ Không hoạt động"
@@ -249,7 +280,8 @@ async function listAcc(api: API, context: BotContext, event: Message) {
 
     api.sendMessage(
       `📃 Danh sách tài khoản:\n\n${accountList}`,
-      event.threadId
+      event.threadId,
+      event.type
     );
   }
 }
@@ -284,7 +316,8 @@ async function stop(api: API, context: BotContext, event: Message, id: string) {
         msg: "❌ Vui lòng cung cấp ID bot cần dừng.",
         quote: event.data,
       },
-      event.threadId
+      event.threadId,
+      event.type
     );
     return;
   }
@@ -296,7 +329,8 @@ async function stop(api: API, context: BotContext, event: Message, id: string) {
         msg: `❌ Không tìm thấy bot với ID ${id}.`,
         quote: event.data,
       },
-      event.threadId
+      event.threadId,
+      event.type
     );
     return;
   }
@@ -304,6 +338,269 @@ async function stop(api: API, context: BotContext, event: Message, id: string) {
   context.botManager.removeBot(id);
 }
 
-async function stopAll(api: API, context: BotContext, event: Message) {
-  context.botManager.stopAllBots();
+async function reload(
+  api: API,
+  context: BotContext,
+  event: Message,
+  handlerName: string
+) {
+  if (!handlerName) {
+    api.sendMessage(
+      {
+        msg: "❌ Vui lòng cung cấp id bot cần tải lại.",
+        quote: event.data,
+      },
+      event.threadId,
+      event.type
+    );
+    return;
+  }
+
+  await api.sendMessage(
+    {
+      msg: `🔄 Đang tải lại bot ${handlerName}...`,
+      quote: event.data,
+    },
+    event.threadId,
+    event.type
+  );
+
+  try {
+    const { handlerReaction, handlerReply, handlerUndo, ...addContext } =
+      context;
+
+    if (handlerName === "all") {
+      context.botManager.removeAllBots();
+      const validAcc = await context.db.account.getActiveAccounts();
+      for (const account of validAcc) {
+        await createBot(account, addContext, CACHEDIR);
+      }
+    } else {
+      const bot = context.botManager.getBot(handlerName);
+      if (!bot) {
+        api.sendMessage(
+          {
+            msg: `❌ Không tìm thấy bot với ID ${handlerName}.`,
+            quote: event.data,
+          },
+          event.threadId,
+          event.type
+        );
+        return;
+      }
+
+      const account = await context.db.account.findOne({
+        accountId: handlerName,
+      });
+      if (!account) {
+        api.sendMessage(
+          {
+            msg: `❌ Không tìm thấy tài khoản với ID ${handlerName}.`,
+            quote: event.data,
+          },
+          event.threadId,
+          event.type
+        );
+        return;
+      }
+
+      // Dừng bot hiện tại
+      context.botManager.removeBot(handlerName);
+
+      await createBot(account, addContext, CACHEDIR);
+    }
+  } catch (error) {
+    console.error("Lỗi khi tải lại handler:", error);
+    api.sendMessage(
+      {
+        msg: `❌ Lỗi khi tải lại bot ${handlerName}: ${error.message}`,
+        quote: event.data,
+      },
+      event.threadId,
+      event.type
+    );
+  }
+}
+
+async function deleteAcc(
+  api: API,
+  context: BotContext,
+  event: Message,
+  accountId: string
+) {
+  if (!accountId) {
+    api.sendMessage(
+      {
+        msg: "❌ Vui lòng cung cấp ID tài khoản cần xóa.",
+        quote: event.data,
+      },
+      event.threadId,
+      event.type
+    );
+    return;
+  }
+
+  const account = await context.db.account.findOne({ accountId });
+  if (!account) {
+    api.sendMessage(
+      {
+        msg: `❌ Không tìm thấy tài khoản với ID ${accountId}.`,
+        quote: event.data,
+      },
+      event.threadId,
+      event.type
+    );
+    return;
+  }
+
+  // Xóa bot nếu đang chạy
+  try {
+    context.botManager.removeBot(accountId);
+  } catch (error: any) {
+    console.error(`Lỗi khi xóa bot ${accountId}:`, error);
+  }
+
+  // Xóa tài khoản khỏi database
+  await context.db.account.delete({ accountId });
+
+  api.sendMessage(
+    {
+      msg: `✅ Tài khoản ${accountId} đã được xóa thành công.`,
+      quote: event.data,
+    },
+    event.threadId,
+    event.type
+  );
+}
+
+async function extendAcc(
+  api: API,
+  context: BotContext,
+  event: Message,
+  args: string[]
+) {
+  if (args.length < 2) {
+    api.sendMessage(
+      {
+        msg: "❌ Vui lòng cung cấp ID tài khoản và thời gian gia hạn (ngày).",
+        quote: event.data,
+      },
+      event.threadId,
+      event.type
+    );
+    return;
+  }
+
+  const accountId = args[0];
+  let daysToAdd: any;
+  if (args[1] == "inf") {
+    daysToAdd = null; // Không giới hạn thời gian
+  } else {
+    daysToAdd = parseInt(args[1]);
+    if (isNaN(daysToAdd) || daysToAdd <= 0) {
+      api.sendMessage(
+        {
+          msg: "❌ Vui lòng cung cấp số ngày hợp lệ để gia hạn.",
+          quote: event.data,
+        },
+        event.threadId,
+        event.type
+      );
+      return;
+    }
+    daysToAdd = new Date(Date.now() + daysToAdd * 24 * 60 * 60 * 1000);
+  }
+
+  const account = await context.db.account.findOne({ accountId });
+  if (!account) {
+    api.sendMessage(
+      {
+        msg: `❌ Không tìm thấy tài khoản với ID ${accountId}.`,
+        quote: event.data,
+      },
+      event.threadId,
+      event.type
+    );
+    return;
+  }
+
+  // Cập nhật ngày hết hạn
+  account.expirationDate = daysToAdd;
+  await context.db.account.update(
+    { accountId },
+    { expirationDate: account.expirationDate }
+  );
+
+  api.sendMessage(
+    {
+      msg: `✅ Tài khoản ${accountId} đã được gia hạn thành công. HSD mới: ${
+        daysToAdd ? daysToAdd.toLocaleDateString("vi-VN") : "Không giới hạn"
+      }`,
+      quote: event.data,
+    },
+    event.threadId,
+    event.type
+  );
+}
+
+async function setRole(
+  api: API,
+  context: BotContext,
+  event: Message,
+  args: string[]
+) {
+  if (args.length < 2) {
+    api.sendMessage(
+      {
+        msg: "❌ Vui lòng cung cấp ID tài khoản và vai trò mới.",
+        quote: event.data,
+      },
+      event.threadId,
+      event.type
+    );
+    return;
+  }
+
+  const accountId = args[0];
+  const newRole = args[1].toUpperCase();
+
+  if (!Object.values(RoleBotEnum).includes(newRole as RoleBotEnum)) {
+    api.sendMessage(
+      {
+        msg: `❌ Vai trò không hợp lệ. Các vai trò hợp lệ: ${Object.values(
+          RoleBotEnum
+        ).join(", ")}`,
+        quote: event.data,
+      },
+      event.threadId,
+      event.type
+    );
+    return;
+  }
+
+  const account = await context.db.account.findOne({ accountId });
+  if (!account) {
+    api.sendMessage(
+      {
+        msg: `❌ Không tìm thấy tài khoản với ID ${accountId}.`,
+        quote: event.data,
+      },
+      event.threadId,
+      event.type
+    );
+    return;
+  }
+
+  // Cập nhật vai trò
+  account.role = newRole as RoleBotEnum;
+  await context.db.account.update({ accountId }, { role: account.role });
+
+  api.sendMessage(
+    {
+      msg: `✅ Vai trò của tài khoản ${accountId} đã được cập nhật thành ${newRole}.`,
+      quote: event.data,
+    },
+    event.threadId,
+    event.type
+  );
 }

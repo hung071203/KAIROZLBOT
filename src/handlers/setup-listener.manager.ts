@@ -1,6 +1,12 @@
 import { API, GroupEvent, Message, Reaction, Undo } from "zca-js";
-import { BotContext, CommandModule, IAnyEvent, NoPrefixModule } from "../common/types";
+import {
+  BotContext,
+  CommandModule,
+  IAnyEvent,
+  NoPrefixModule,
+} from "../common/types";
 import { HandlerManager } from "./handler.manager";
+import { RoleBotEnum, RoleUserEnum } from "../common";
 
 export class SetupListeners {
   private api: API;
@@ -42,13 +48,16 @@ export class SetupListeners {
     let args: string[] = [];
     if (typeof content == "string") {
       args = content.split(" ").filter((arg: string) => arg.trim() !== "");
-    } else if (typeof content == "object" && typeof content.title === "string") {
+    } else if (
+      typeof content == "object" &&
+      typeof content.title === "string"
+    ) {
       args = content.title
         .split(" ")
         .filter((arg: string) => arg.trim() !== "");
     }
 
-    const prefix = this.botContext.appConfig.getConfig('prefix') || "!";
+    const prefix = this.botContext.appConfig.getConfig("prefix") || "!";
     if (args[0] && args[0].startsWith(prefix)) return;
 
     const handlerReply = this.botContext.handlerReply.find(
@@ -57,12 +66,16 @@ export class SetupListeners {
         reply.threadId === threadId
     );
 
-    
-
     if (handlerReply) {
       const handler = replyModules.get(handlerReply.name);
       if (event.isSelf && handler?.config?.self === false) return;
-      handler.handlerReply(this.api, this.botContext, event, args, handlerReply);
+      handler.handlerReply(
+        this.api,
+        this.botContext,
+        event,
+        args,
+        handlerReply
+      );
     }
   }
 
@@ -96,7 +109,7 @@ export class SetupListeners {
     const commandModules = this.handlerManager.getCommands();
     const noPrefixModules = this.handlerManager.getNoPrefix();
 
-    const prefix = this.botContext.appConfig.getConfig('prefix') || "!";
+    const prefix = this.botContext.appConfig.getConfig("prefix") || "!";
     const threadId = msg.threadId;
     const content = msg.data.content;
 
@@ -165,10 +178,103 @@ export class SetupListeners {
 
     this.cooldownMap.set(cooldownKey, now);
     if (msg.isSelf && module?.config?.self === false) return;
+
+    const hasPermission = await this.checkPermissions(module, msg);
+    if (!hasPermission) return;
+
     if (isPrefix && "run" in module) {
       await module.run(this.api, this.botContext, msg, args);
     } else if (!isPrefix && "noPrefix" in module) {
       await module.noPrefix(this.api, this.botContext, msg, args);
     }
+  }
+
+  async checkPermissions(
+    module: CommandModule | NoPrefixModule,
+    event: Message
+  ) {
+    const admins = this.botContext.appConfig.getConfig("admins");
+    const senderId = event.data.uidFrom;
+    const { roleUser, roleBot } = module.config;
+
+    // 1. Kiểm tra nếu là DEV
+    if (roleUser === RoleUserEnum.DEV && admins.includes(senderId)) return true;
+    // 2. Kiểm tra quyền BOT
+    const accountRole = await this.botContext.db.account.findOne({
+      accountId: this.api.getOwnId(),
+    });
+
+    if (!accountRole) {
+      this.api.sendMessage(
+        {
+          msg: "❌ Không tìm thấy thông tin tài khoản bot.",
+          quote: event.data,
+        },
+        event.threadId,
+        event.type
+      );
+      return false;
+    }
+
+    const roleHierarchy = {
+      [RoleBotEnum.ADMIN]: 3,
+      [RoleBotEnum.PRO]: 2,
+      [RoleBotEnum.FREE]: 1,
+    };
+
+    if (roleHierarchy[accountRole.role] < roleHierarchy[roleBot]) {
+      this.api.sendMessage(
+        {
+          msg: `❌ Bot cần quyền ${roleBot} để sử dụng lệnh này.`,
+          quote: event.data,
+        },
+        event.threadId,
+        event.type
+      );
+      return false;
+    }
+
+    if (accountRole.role !== RoleBotEnum.ADMIN) {
+      const expiration = accountRole.expirationDate
+        ? new Date(accountRole.expirationDate)
+        : null;
+
+      if (expiration && expiration < new Date()) {
+        this.api.sendMessage(
+          {
+            msg: `❌ Bot đã hết hạn sử dụng. Vui lòng gia hạn để tiếp tục sử dụng bot.`,
+            quote: event.data,
+          },
+          event.threadId,
+          event.type
+        );
+        return false;
+      }
+    }
+
+    // 3. Kiểm tra quyền người dùng
+    const roleUserHierarchy = {
+      [RoleUserEnum.DEV]: 5,
+      [RoleUserEnum.ADMIN]: 4,
+      [RoleUserEnum.DEPUTY]: 3,
+      [RoleUserEnum.USER]: 2,
+      [RoleUserEnum.ALL]: 1,
+    };
+
+    // const userRole = await this.botContext.db.account.getUserRole(senderId); // Giả sử async
+
+    // if (roleUserHierarchy[userRole] < roleUserHierarchy[roleUser]) {
+    //   this.api.sendMessage(
+    //     {
+    //       msg: `❌ Bạn cần quyền ${roleUser} để sử dụng lệnh này.`,
+    //       quote: event.data,
+    //     },
+    //     event.threadId,
+    //     event.type
+    //   );
+    //   return false
+    // }
+
+    return true;
   }
 }

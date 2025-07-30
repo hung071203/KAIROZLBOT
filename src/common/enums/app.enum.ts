@@ -2,11 +2,12 @@ export enum AppEnum {
   APP_NAME = 'KAIROZLBOT',
 }
 
-export enum RoleEnum {
+export enum RoleUserEnum {
   ALL = 'ALL',
-  MOD = 'MOD',
+  DEV = 'DEV',
   ADMIN = 'ADMIN',
-  OWNER = 'OWNER',
+  DEPUTY = 'DEPUTY',
+  USER = 'USER',
 }
 
 export enum RoleBotEnum {

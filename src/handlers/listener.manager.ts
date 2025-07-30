@@ -10,38 +10,26 @@ import { Logger } from "../utils/logger.util";
 
 export class ListenerManager {
   private bot: KairoZLBot;
-  private handlerManager: HandlerManager;
   private botContext: BotContext;
 
-  constructor(bot: KairoZLBot, database?: DatabaseManager, config?: AppConfig, botManager?: MultiAccountBotManager) {
+  constructor(bot: KairoZLBot, botContext: BotContext) {
     this.bot = bot;
-    this.handlerManager = new HandlerManager();
 
     // Khởi tạo BotContext với database
     this.botContext = {
-      db: database,
-      appConfig: config,
-      botManager,
+      ...botContext,
       handlerReply: [],
       handlerReaction: [],
       handlerUndo: [],
     };
-  }
 
-  public async initialize(): Promise<void> {
-    // Load handlers và events
-    await this.handlerManager.loadGroupCommands();
-    await this.handlerManager.loadGroupEvents();
-
-    // Thiết lập listeners
-    this.setupListeners();
+    setInterval(() => {}, 60 * 60 * 1000); // Giữ cho process không bị dừng
   }
 
   public setupListeners(): void {
     const api = this.bot.getAPI();
     const { listener } = api;
 
-    this.botContext.handlerManager = this.handlerManager;
     const setupListeners = new SetupListeners(api, this.botContext);
     setupListeners.OnLoad();
 

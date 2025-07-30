@@ -320,7 +320,6 @@ export class MultiAccountBotManager {
     }
 
     this.bots.set(config.accountId, bot);
-    Logger.info(`✅ Bot ${config.accountId} đã sẵn sàng`);
 
     return bot;
   }
@@ -349,6 +348,17 @@ export class MultiAccountBotManager {
     bot.stop();
     this.bots.delete(accountId);
     Logger.info(`✅ Đã xóa bot ${accountId}`);
+  }
+
+  removeAllBots() {
+    Logger.info("🗑️ Đang xóa tất cả bot...");
+    for (const [id, bot] of this.bots) {
+      try {
+        this.removeBot(id);
+      } catch (error) {
+        Logger.error(`❌ Lỗi dừng bot ${id}:`, error);
+      }
+    }
   }
 
   /**

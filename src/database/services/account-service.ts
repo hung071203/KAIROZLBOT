@@ -1,6 +1,8 @@
 import { BaseService } from "./base-service";
 import { Account } from "../entities/Account";
 import { ZaloConfig } from "../../common/types";
+import { RoleBotEnum } from "../../common";
+import { parseDate } from "../../common/helpers/app.helper";
 
 export class AccountService extends BaseService<Account> {
   constructor() {
@@ -19,31 +21,48 @@ export class AccountService extends BaseService<Account> {
     cookie?: any;
     imei?: string;
     userAgent?: string;
-    qrPath?: string;
+    role?: RoleBotEnum;
+    expirationDate?: Date;
+    isActive?: boolean;
   }): Promise<Account> {
     let account = await this.findOne({ accountId: accountData.accountId });
-    
+
     if (account) {
       // Cập nhật account đã tồn tại
       account.loginMethod = accountData.loginMethod;
-      account.zaloConfig = accountData.zaloConfig ? JSON.stringify(accountData.zaloConfig) : null;
-      account.proxyConfig = accountData.proxyConfig ? JSON.stringify(accountData.proxyConfig) : null;
-      account.cookie = accountData.cookie ? JSON.stringify(accountData.cookie) : null;
+      account.zaloConfig = accountData.zaloConfig
+        ? JSON.stringify(accountData.zaloConfig)
+        : null;
+      account.proxyConfig = accountData.proxyConfig
+        ? JSON.stringify(accountData.proxyConfig)
+        : null;
+      account.cookie = accountData.cookie
+        ? JSON.stringify(accountData.cookie)
+        : null;
       account.imei = accountData.imei || null;
       account.userAgent = accountData.userAgent || null;
-      account.isActive = true;
-      
+      account.isActive =
+        accountData.isActive !== undefined ? accountData.isActive : true;
+      account.role = accountData.role || RoleBotEnum.FREE;
+      account.expirationDate = parseDate(accountData.expirationDate);
+
       return await this.save(account);
     } else {
       // Tạo account mới
       return await this.create({
         accountId: accountData.accountId,
         loginMethod: accountData.loginMethod,
-        zaloConfig: accountData.zaloConfig ? JSON.stringify(accountData.zaloConfig) : null,
-        proxyConfig: accountData.proxyConfig ? JSON.stringify(accountData.proxyConfig) : null,
+        zaloConfig: accountData.zaloConfig
+          ? JSON.stringify(accountData.zaloConfig)
+          : null,
+        proxyConfig: accountData.proxyConfig
+          ? JSON.stringify(accountData.proxyConfig)
+          : null,
         cookie: accountData.cookie ? JSON.stringify(accountData.cookie) : null,
         imei: accountData.imei || null,
         userAgent: accountData.userAgent || null,
+        role: accountData.role || RoleBotEnum.FREE,
+        expirationDate: parseDate(accountData.expirationDate),
         isActive: true,
       });
     }
@@ -60,7 +79,9 @@ export class AccountService extends BaseService<Account> {
   }
 
   // Lấy accounts theo phương thức đăng nhập
-  async getAccountsByLoginMethod(loginMethod: "cookie" | "qr"): Promise<Account[]> {
+  async getAccountsByLoginMethod(
+    loginMethod: "cookie" | "qr"
+  ): Promise<Account[]> {
     return await this.find({ where: { loginMethod } });
   }
 
@@ -81,8 +102,12 @@ export class AccountService extends BaseService<Account> {
     return {
       accountId: account.accountId,
       loginMethod: account.loginMethod,
-      zaloConfig: account.zaloConfig ? JSON.parse(account.zaloConfig) : undefined,
-      proxyConfig: account.proxyConfig ? JSON.parse(account.proxyConfig) : undefined,
+      zaloConfig: account.zaloConfig
+        ? JSON.parse(account.zaloConfig)
+        : undefined,
+      proxyConfig: account.proxyConfig
+        ? JSON.parse(account.proxyConfig)
+        : undefined,
       cookie: account.cookie ? JSON.parse(account.cookie) : undefined,
       imei: account.imei || undefined,
       userAgent: account.userAgent || undefined,

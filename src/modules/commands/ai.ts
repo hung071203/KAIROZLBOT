@@ -1,6 +1,6 @@
 import { API, Message } from "zca-js";
 import { BotContext, CommandModule } from "../../common/types";
-import { RoleEnum } from "../../common";
+import { RoleBotEnum, RoleUserEnum } from "../../common";
 import { chat } from "../../common/services/gemini.service";
 
 export default {
@@ -12,7 +12,8 @@ export default {
     tag: "AI",
     usage: "",
     countDown: 1,
-    role: RoleEnum.ALL,
+    roleUser: RoleUserEnum.ALL,
+    roleBot: RoleBotEnum.ADMIN,
     self: true, // Chỉ dành cho bot cá nhân
   },
 

@@ -1,5 +1,5 @@
 import { API, GroupEvent, Message, Reaction, TGroupMessage, ThreadType, TMessage, Undo } from "zca-js";
-import { AnyEventTypeEnum, RoleEnum } from "../enums";
+import { AnyEventTypeEnum, RoleBotEnum, RoleUserEnum } from "../enums";
 import { HandlerManager } from "../../handlers/handler.manager";
 import { DatabaseManager } from "../../database";
 import { MultiAccountBotManager } from "../../configs";
@@ -16,7 +16,8 @@ export interface CommandConfig extends BaseConfig {
   tag: string;
   usage: string;
   countDown: number;
-  role: RoleEnum;
+  roleUser: RoleUserEnum;
+  roleBot: RoleBotEnum
   self: boolean;
 }
 

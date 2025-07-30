@@ -24,7 +24,6 @@ export class HandlerManager {
   private noPrefix: Map<string, NoPrefixModule> = new Map();
   private anyHandlers: Map<string, AnyModule> = new Map();
 
-
   constructor() {}
 
   async loadGroupCommands() {
@@ -38,7 +37,9 @@ export class HandlerManager {
 
     for (const file of files) {
       const commandModulePath = path.join(commandPath, file);
-      const imported = await import(commandModulePath);
+      delete require.cache[require.resolve(commandModulePath)];
+      const imported = require(commandModulePath);
+
       const module: GroupCommands = imported.default || imported;
 
       if (!module?.config?.name) continue;
@@ -129,7 +130,9 @@ export class HandlerManager {
     });
     for (const file of files) {
       const eventModulePath = path.join(eventPath, file);
-      const imported = await import(eventModulePath);
+      delete require.cache[require.resolve(eventModulePath)];
+      const imported = require(eventModulePath);
+
       const module: GroupEvents = imported.default || imported;
 
       if (!module?.config?.name || !module.handlerEvent) continue;

@@ -4,11 +4,11 @@ import path from 'path';
 import { AccountService } from './database/services/account-service';
 import { initializeDatabase } from './configs/database.config';
 import { DatabaseManager } from './database';
+import { RoleBotEnum } from './common';
 
 interface AccountData {
   accountId: string;
   loginMethod: "cookie" | "qr";
-  qrPath?: string;
   zaloConfig?: {
     selfListen?: boolean;
     checkUpdate?: boolean;
@@ -22,6 +22,8 @@ interface AccountData {
   imei?: string;
   userAgent?: string;
   isActive?: boolean;
+  role: RoleBotEnum;
+  exprirationDate?: Date;
 }
 
 class AccountCLI {
@@ -95,8 +97,9 @@ class AccountCLI {
       {
         accountId: "bot_sample_01",
         loginMethod: "cookie",
-        qrPath: "qr_bot_sample_01.png",
         isActive: true,
+        role: RoleBotEnum.ADMIN,
+        exprirationDate: null,
         zaloConfig: {
           selfListen: true,
           checkUpdate: false,
@@ -113,7 +116,8 @@ class AccountCLI {
       {
         accountId: "bot_sample_02",
         loginMethod: "qr",
-        qrPath: "qr_bot_sample_02.png",
+        role: RoleBotEnum.FREE,
+        exprirationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Hết hạn sau 30 ngày
         isActive: false,
         zaloConfig: {
           selfListen: false,
@@ -171,7 +175,9 @@ class AccountCLI {
         const accountData: AccountData = {
           accountId: account.accountId,
           loginMethod: account.loginMethod,
-          isActive: account.isActive
+          isActive: account.isActive,
+          role: account.role,
+          exprirationDate: account.expirationDate
         };
 
         if (account.imei) {
@@ -219,7 +225,8 @@ class AccountCLI {
         console.log(`\n${index + 1}. Account ID: ${account.accountId}`);
         console.log(`   Phương thức: ${account.loginMethod}`);
         console.log(`   Trạng thái: ${account.isActive !== false ? '🟢 Hoạt động' : '🔴 Tắt'}`);
-        console.log(`   QR Path: ${account.qrPath || 'N/A'}`);
+        console.log(`   Role: ${account.role}`);
+        console.log(`   Expiration Date: ${account.exprirationDate ? account.exprirationDate.toLocaleDateString('vi-VN') : 'Không có'}`);
         console.log(`   IMEI: ${account.imei || 'N/A'}`);
         
         if (account.zaloConfig) {
@@ -249,7 +256,8 @@ class AccountCLI {
         console.log(`\n${index + 1}. Account ID: ${account.accountId}`);
         console.log(`   Phương thức: ${account.loginMethod}`);
         console.log(`   Trạng thái: ${account.isActive !== false ? '🟢 Hoạt động' : '🔴 Tắt'}`);
-        console.log(`   QR Path: ${account.qrPath || 'N/A'}`);
+        console.log(`   Role: ${account.role}`);
+        console.log(`   Expiration Date: ${account.exprirationDate ? account.exprirationDate.toLocaleDateString('vi-VN') : 'Không có'}`);
         console.log(`   IMEI: ${account.imei || 'N/A'}`);
         if (account.zaloConfig) {
           console.log(`   Zalo Config: selfListen=${account.zaloConfig.selfListen}, checkUpdate=${account.zaloConfig.checkUpdate}, logging=${account.zaloConfig.logging}`);
@@ -305,7 +313,7 @@ class AccountCLI {
             cookie: accountData.cookie,
             imei: accountData.imei,
             userAgent: accountData.userAgent,
-            qrPath: accountData.qrPath
+            role: accountData.role as RoleBotEnum,
           });
           
           // Cập nhật trạng thái active
@@ -454,7 +462,6 @@ class AccountCLI {
             cookie: accountData.cookie,
             imei: accountData.imei,
             userAgent: accountData.userAgent,
-            qrPath: accountData.qrPath
           });
           
           // Cập nhật trạng thái active
@@ -494,7 +501,9 @@ class AccountCLI {
         const accountData: AccountData = {
           accountId: account.accountId,
           loginMethod: account.loginMethod,
-          isActive: account.isActive
+          isActive: account.isActive,
+          role: account.role,
+          exprirationDate: account.expirationDate || null
         };
 
         if (account.imei) {

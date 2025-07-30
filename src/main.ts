@@ -11,6 +11,8 @@ import { Logger } from "./utils/logger.util";
 import { Account } from "./database";
 import { CACHEDIR } from "./common";
 import { LoginQRCallbackEvent } from "zca-js";
+import { BotContext } from "./common/types";
+import { HandlerManager } from "./handlers/handler.manager";
 
 dotenv.config();
 
@@ -81,8 +83,20 @@ async function startBot() {
     const botManager = new MultiAccountBotManager(db);
     const accounts = await db.account.getActiveAccounts();
 
+    //Load HandlerManager
+    const handlerManager = new HandlerManager();
+    await handlerManager.loadGroupCommands();
+    await handlerManager.loadGroupEvents();
+
+    const botContext: BotContext = {
+      db,
+      appConfig: botConfig,
+      botManager,
+      handlerManager,
+    }
+
     for (let account of accounts) {
-      await createBot(account, botManager, cacheDir, db, botConfig);
+      await createBot(account, botContext, cacheDir);
     }
   } catch (error) {
     Logger.error("❌ Lỗi khởi động bot:", error);
@@ -92,10 +106,8 @@ async function startBot() {
 
 export async function createBot(
   account: Partial<Account>,
-  botManager: MultiAccountBotManager,
+  botContext: BotContext,
   cacheDir: string,
-  db: DatabaseManager,
-  botConfig: AppConfig,
   callback?: (event: LoginQRCallbackEvent) => void
 ) {
   let cookie: any;
@@ -111,7 +123,7 @@ export async function createBot(
     }
   }
   // Thêm bot mới
-  await botManager.addBot({
+  await botContext.botManager.addBot({
     accountId: account.accountId,
     loginMethod: account.loginMethod as "cookie" | "qr",
     zaloConfig: account.zaloConfig && JSON.parse(account.zaloConfig),
@@ -126,12 +138,12 @@ export async function createBot(
   Logger.info(`🤖 Bot ${account.accountId} đã được thêm thành công.`);
 
   // Khởi tạo HandlerManager cho bot
-  const bot = botManager.getBot(account.accountId);
+  const bot = botContext.botManager.getBot(account.accountId);
 
   if (bot) {
     // Khởi tạo và thiết lập ListenerManager với database context
-    const listenerManager = new ListenerManager(bot, db, botConfig, botManager);
-    await listenerManager.initialize();
+    const listenerManager = new ListenerManager(bot, botContext);
+    await listenerManager.setupListeners();
 
     Logger.info(
       `🔗 Bot context đã được tạo với database cho ${account.accountId}`
@@ -140,7 +152,7 @@ export async function createBot(
     // Bắt đầu bot
     bot.start();
 
-    Logger.info(`✅ Bot ${account.accountId} đã sẵn sàng.`);
+    Logger.success(`✅ Bot ${account.accountId} đã sẵn sàng.`);
   } else {
     Logger.error(`❌ Không tìm thấy bot với ID ${account.accountId}`);
   }

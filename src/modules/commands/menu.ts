@@ -1,6 +1,6 @@
 import { API, Message } from "zca-js";
 import { BotContext, CommandModule } from "../../common/types";
-import { RoleEnum } from "../../common";
+import { RoleBotEnum, RoleUserEnum } from "../../common";
 
 export default {
   config: {
@@ -11,33 +11,42 @@ export default {
     tag: "Utility",
     usage: "menu",
     countDown: 10,
-    role: RoleEnum.ALL,
+    roleUser: RoleUserEnum.ALL,
+    roleBot: RoleBotEnum.ADMIN,
     self: true,
   },
 
-  run: async (api: API, context: BotContext, event: Message, args: string[]) => {
-      // Lấy danh sách commands từ handlerManager trong context
-      const commands = context.handlerManager?.getCommands();
-      
-      if (!commands || commands.size === 0) {
-        api.sendMessage("Không tìm thấy lệnh nào trong hệ thống.", event.threadId);
-        return;
-      }
+  run: async (
+    api: API,
+    context: BotContext,
+    event: Message,
+    args: string[]
+  ) => {
+    // Lấy danh sách commands từ handlerManager trong context
+    const commands = context.handlerManager?.getCommands();
 
-      let menuMessage = "📋 DANH SÁCH CÁC LỆNH:\n\n";
-      
-      // Duyệt qua tất cả commands đã load
-      for (const [commandName, command] of commands) {
-        const { name, description, usage, tag } = command.config;
-        menuMessage += `🔹 Tên: ${name}\n`;
-        menuMessage += `📝 Mô tả: ${description}\n`;
-        menuMessage += `💡 Cách dùng: ${usage}\n`;
-        menuMessage += `🏷️ Danh mục: ${tag}\n`;
-        menuMessage += "─────────────────\n";
-      }
+    if (!commands || commands.size === 0) {
+      api.sendMessage(
+        "Không tìm thấy lệnh nào trong hệ thống.",
+        event.threadId
+      );
+      return;
+    }
 
-      menuMessage += "\n💬 Sử dụng các lệnh theo cú pháp được chỉ định ở trên.";
+    let menuMessage = "📋 DANH SÁCH CÁC LỆNH:\n\n";
 
-      api.sendMessage(menuMessage, event.threadId);
+    // Duyệt qua tất cả commands đã load
+    for (const [commandName, command] of commands) {
+      const { name, description, usage, tag } = command.config;
+      menuMessage += `🔹 Tên: ${name}\n`;
+      menuMessage += `📝 Mô tả: ${description}\n`;
+      menuMessage += `💡 Cách dùng: ${usage}\n`;
+      menuMessage += `🏷️ Danh mục: ${tag}\n`;
+      menuMessage += "─────────────────\n";
+    }
+
+    menuMessage += "\n💬 Sử dụng các lệnh theo cú pháp được chỉ định ở trên.";
+
+    api.sendMessage(menuMessage, event.threadId);
   },
 } as CommandModule;

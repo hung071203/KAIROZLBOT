@@ -11,7 +11,8 @@ import {
   AnyEventTypeEnum,
   DeepAiChatStyleEnum,
   DeepAiModelEnum,
-  RoleEnum,
+  RoleBotEnum,
+  RoleUserEnum,
 } from "../../common";
 import { chatDeepAi, AgentService } from "../../common/services";
 import { getContent } from "../../common/helpers";
@@ -28,7 +29,8 @@ export default {
     usage:
       "Gửi yêu cầu tự nhiên cho AI để thực hiện các hành động tự động: thông tin nhóm, quản lý thành viên, tạo poll, v.v.",
     countDown: 1,
-    role: RoleEnum.ALL,
+    roleUser: RoleUserEnum.ADMIN,
+    roleBot: RoleBotEnum.ADMIN,
     self: false, // Chỉ dành cho bot cá nhân
   },
 
@@ -36,7 +38,7 @@ export default {
     if (event.type !== AnyEventTypeEnum.MESSAGE) return;
     const eventData = event.data as Message;
 
-    if(eventData.isSelf) return; // Bỏ qua tin nhắn của chính bot
+    if (eventData.isSelf) return; // Bỏ qua tin nhắn của chính bot
 
     const msg = getContent(eventData.data.content);
 
@@ -89,7 +91,7 @@ export default {
   ) => {
     try {
       const content = getContent(event.data.content);
-      if(!content || content.includes(agentName)) return;
+      if (!content || content.includes(agentName)) return;
 
       const agentService = new AgentService(
         api,

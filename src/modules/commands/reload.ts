@@ -1,6 +1,6 @@
 import { API, Message } from "zca-js";
 import { BotContext, CommandModule, GroupCommands } from "../../common/types";
-import { RoleEnum } from "../../common";
+import { RoleBotEnum, RoleUserEnum } from "../../common";
 
 export default {
   config: {
@@ -11,7 +11,8 @@ export default {
     tag: "AI",
     usage: "4k rep hình muốn upscale",
     countDown: 1,
-    role: RoleEnum.ALL,
+    roleUser: RoleUserEnum.ALL,
+    roleBot: RoleBotEnum.FREE,
     self: true, // Chỉ dành cho bot cá nhân
   },
 
@@ -24,7 +25,7 @@ export default {
     await context.handlerManager.reloadHandlers();
     api.sendMessage(
       {
-        msg: "✅ Đã tải lại tất cả các lệnh thành công!",
+        msg: "✅ Đã tải lại tất cả các lệnh thành công!!",
         quote: event.data,
       },
       event.threadId,
