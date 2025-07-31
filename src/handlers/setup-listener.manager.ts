@@ -222,6 +222,18 @@ export class SetupListeners {
       [RoleBotEnum.FREE]: 1,
     };
 
+    if(accountRole.expirationDate && new Date(accountRole.expirationDate) < new Date() && accountRole.role !== RoleBotEnum.ADMIN) {
+      this.api.sendMessage(
+        {
+          msg: "❌ Bot đã hết hạn sử dụng. Vui lòng gia hạn để tiếp tục sử dụng bot.",
+          quote: event.data,
+        },
+        event.threadId,
+        event.type
+      );
+      return false;
+    }
+
     if (roleHierarchy[accountRole.role] < roleHierarchy[roleBot]) {
       this.api.sendMessage(
         {

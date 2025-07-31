@@ -31,7 +31,7 @@ export class Account {
   @Column({ default: true })
   isActive: boolean; // Trạng thái hoạt động
 
-  @Column({ type: "date", nullable: true })
+  @Column({ type: "datetime", nullable: true })
   expirationDate: Date; // Ngày hết hạn đăng nhập
 
   @Column({ enum: RoleBotEnum, default: RoleBotEnum.FREE })

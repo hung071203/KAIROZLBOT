@@ -10,10 +10,13 @@ import { createBot } from "../../main";
 import { safeBase64 } from "../../utils/download.util";
 import * as fs from "fs";
 import { Account } from "../../database";
+import { waiting } from "../../utils/other.util";
+import { renderTextImage } from "../../common/helpers";
+import path from "path";
 
 export default {
   config: {
-    name: "account",
+    name: "acc",
     version: "1.0.0",
     credits: "Hung dep trai",
     description: "Upscale hình ảnh",
@@ -256,11 +259,23 @@ async function listAcc(api: API, context: BotContext, event: Message) {
       event.type
     );
   } else {
-    const accountList = accounts
+    const accountListText = accounts
       .map((acc, index) => {
-        const expired = acc.expirationDate
-          ? `🕒 HSD: ${acc.expirationDate.toLocaleDateString("vi-VN")}`
-          : "🕒 HSD: Không có";
+        const expired =
+          acc.role === RoleBotEnum.ADMIN
+            ? "🕒 HSD: Vĩnh viễn"
+            : acc.expirationDate
+            ? `🕒 HSD: ${acc.expirationDate.toLocaleString("vi-VN", {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: false,
+              })}`
+            : "🕒 HSD: Không có";
+
         return [
           `🔹 Tài khoản #${index + 1}`,
           `• ID: ${acc.id}`,
@@ -278,8 +293,25 @@ async function listAcc(api: API, context: BotContext, event: Message) {
       })
       .join("\n\n");
 
+    const outputPath = path.join(
+      CACHEDIR,
+      `account_list_${Date.now()}.png`
+    );
+
+    await renderTextImage(accountListText, outputPath, {
+      font: "24px Arial",
+      lineHeight: 36,
+      padding: 20,
+      textColor: "#000",
+      backgroundColor: "#fff",
+    });
+
     api.sendMessage(
-      `📃 Danh sách tài khoản:\n\n${accountList}`,
+      {
+        msg: "📃 Danh sách tài khoản đã được tạo thành công.",
+        quote: event.data,
+        attachments: outputPath,
+      },
       event.threadId,
       event.type
     );
@@ -358,19 +390,21 @@ async function reload(
 
   await api.sendMessage(
     {
-      msg: `🔄 Đang tải lại bot ${handlerName}...`,
+      msg: `🔄 Đang tải lại bot ${handlerName}, hãy đợi 3 đến 5s để có hiệu lực!`,
       quote: event.data,
     },
     event.threadId,
     event.type
   );
 
+  await waiting(1000); // Đợi 1 giây để đảm bảo tất cả bot đã dừng
   try {
     const { handlerReaction, handlerReply, handlerUndo, ...addContext } =
       context;
 
     if (handlerName === "all") {
       context.botManager.removeAllBots();
+
       const validAcc = await context.db.account.getActiveAccounts();
       for (const account of validAcc) {
         await createBot(account, addContext, CACHEDIR);
