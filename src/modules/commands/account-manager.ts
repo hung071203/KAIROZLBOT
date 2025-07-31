@@ -83,17 +83,34 @@ export default {
           break;
         }
         case "help": {
-          api.sendMessage(
+          const helpMessage =
             `📜 Danh sách lệnh:\n\n` +
-              `- \`add\`: Tạo tài khoản mới bằng QR.\n` +
-              `- \`list\`: Hiển thị danh sách tài khoản.\n` +
-              `- \`runner\`: Hiển thị danh sách bot đang chạy.\n` +
-              `- \`stop <id>\`: Dừng bot theo ID.\n` +
-              `- \`stopall\`: Dừng tất cả bot và thoát chương trình.\n` +
-              `- \`reload <id|all>\`: Tải lại bot theo ID hoặc tất cả bot.\n` +
-              `- \`delete <id>\`: Xóa tài khoản theo ID.\n` +
-              `- \`extend <id> <days|inf>\`: Gia hạn tài khoản theo ID và số ngày (hoặc 'inf' cho không giới hạn).\n` +
-              `- \`role <id> <role>\`: Cập nhật vai trò của tài khoản theo ID và vai trò mới.`,
+            `- add: Tạo tài khoản mới bằng QR.\n` +
+            `- list: Hiển thị danh sách tài khoản.\n` +
+            `- runner: Hiển thị danh sách bot đang chạy.\n` +
+            `- stop <id>: Dừng bot theo ID.\n` +
+            `- stopall: Dừng tất cả bot và thoát chương trình.\n` +
+            `- reload <id|all>: Tải lại bot theo ID hoặc tất cả bot.\n` +
+            `- delete <id>: Xóa tài khoản theo ID.\n` +
+            `- extend <id> <days|inf>: Gia hạn tài khoản theo ID và số ngày (hoặc 'inf' cho không giới hạn).\n` +
+            `- role <id> <role>: Cập nhật vai trò của tài khoản theo ID và vai trò mới.`;
+
+          const outputPath = path.join(CACHEDIR, `help_${Date.now()}.png`);
+
+          await renderTextImage(helpMessage, outputPath, {
+            font: "24px Arial",
+            lineHeight: 36,
+            padding: 20,
+            textColor: "#000",
+            backgroundColor: "#fff",
+          });
+
+          api.sendMessage(
+            {
+              msg: "📜 Danh sách lệnh đã được tạo thành công.",
+              quote: event.data,
+              attachments: outputPath,
+            },
             event.threadId,
             event.type
           );
@@ -293,10 +310,7 @@ async function listAcc(api: API, context: BotContext, event: Message) {
       })
       .join("\n\n");
 
-    const outputPath = path.join(
-      CACHEDIR,
-      `account_list_${Date.now()}.png`
-    );
+    const outputPath = path.join(CACHEDIR, `account_list_${Date.now()}.png`);
 
     await renderTextImage(accountListText, outputPath, {
       font: "24px Arial",
