@@ -135,7 +135,6 @@ export async function createBot(
     // QR login data
     qrPath: cacheDir + `/qr_${account.accountId}.png`,
   }, callback);
-  Logger.info(`🤖 Bot ${account.accountId} đã được thêm thành công.`);
 
   // Khởi tạo HandlerManager cho bot
   const bot = botContext.botManager.getBot(account.accountId);
@@ -145,14 +144,10 @@ export async function createBot(
     const listenerManager = new ListenerManager(bot, botContext);
     await listenerManager.setupListeners();
 
-    Logger.info(
-      `🔗 Bot context đã được tạo với database cho ${account.accountId}`
-    );
-
     // Bắt đầu bot
     bot.start();
 
-    Logger.success(`✅ Bot ${account.accountId} đã sẵn sàng.`);
+    Logger.success(`✅ [${account.accountId}] đã sẵn sàng!`);
   } else {
     Logger.error(`❌ Không tìm thấy bot với ID ${account.accountId}`);
   }

@@ -314,6 +314,7 @@ class AccountCLI {
             imei: accountData.imei,
             userAgent: accountData.userAgent,
             role: accountData.role as RoleBotEnum,
+            expirationDate: accountData.exprirationDate ? new Date(accountData.exprirationDate) : undefined,
           });
           
           // Cập nhật trạng thái active

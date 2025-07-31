@@ -1,7 +1,14 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from "typeorm";
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  BeforeInsert,
+} from "typeorm";
 import { RoleBotEnum } from "../../common";
 
-@Entity('accounts')
+@Entity("accounts")
 export class Account {
   @PrimaryGeneratedColumn()
   id: number;
@@ -42,4 +49,9 @@ export class Account {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @BeforeInsert()
+  setExpirationDate() {
+    this.expirationDate = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+  }
 }

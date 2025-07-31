@@ -226,7 +226,7 @@ export class KairoZLBot {
     }
 
     this.api.listener.start();
-    Logger.info(`🚀 [${this.accountId}] Bot đã bắt đầu hoạt động!`);
+    Logger.info(`🚀 [${this.accountId}] Bot đã bắt đầu lắng nghe!`);
   }
 
   /**
@@ -235,7 +235,7 @@ export class KairoZLBot {
   stop() {
     if (this.api && this.api.listener) {
       this.api.listener.stop();
-      Logger.info(`⏹️ [${this.accountId}] Bot đã dừng hoạt động!`);
+      Logger.info(`⏹️ [${this.accountId}] Bot đã dừng lắng nghe!`);
     }
   }
 

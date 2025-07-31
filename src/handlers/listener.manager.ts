@@ -79,6 +79,6 @@ export class ListenerManager {
       });
     });
 
-    Logger.info(`✅ Đã thiết lập listeners cho bot ${this.bot.getAccountId()}`);
+    Logger.info(`✅ [${this.bot.getAccountId()}] Đã thiết lập listeners`);
   }
 }
