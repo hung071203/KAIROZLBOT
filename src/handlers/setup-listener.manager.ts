@@ -60,11 +60,8 @@ export class SetupListeners {
     const prefix = this.botContext.appConfig.getConfig("prefix") || "!";
     if (args[0] && args[0].startsWith(prefix)) return;
 
-    const handlerReply = this.botContext.handlerReply.find(
-      (reply) =>
-        reply.msgId == String(event.data.quote.globalMsgId) &&
-        reply.threadId === threadId
-    );
+    const key = `${threadId}_${String(event.data.quote.globalMsgId)}`;
+    const handlerReply = this.botContext.handlerReply.get(key);
 
     if (handlerReply) {
       const handler = replyModules.get(handlerReply.name);
@@ -81,9 +78,12 @@ export class SetupListeners {
 
   async ReactionListener(event: Reaction) {
     const reactionModules = this.handlerManager.getReactions();
-    const handlerReaction = this.botContext.handlerReaction.find(
-      (reaction) => reaction.msgId == String(event.data.content.rMsg[0].gMsgID)
-    );
+    // const handlerReaction = this.botContext.handlerReaction.find(
+    //   (reaction) => reaction.msgId == String(event.data.content.rMsg[0].gMsgID)
+    // );
+
+    const key = `${event.threadId}_${String(event.data.content.rMsg[0].gMsgID)}`;
+    const handlerReaction = this.botContext.handlerReaction.get(key);
 
     if (handlerReaction && reactionModules.has(handlerReaction.name)) {
       reactionModules
@@ -94,9 +94,12 @@ export class SetupListeners {
 
   async UndoListener(event: Undo) {
     const undoModules = this.handlerManager.getUndos();
-    const handlerUndo = this.botContext.handlerUndo.find(
-      (undo) => undo.msgId == String(event.data.content.globalMsgId)
-    );
+    // const handlerUndo = this.botContext.handlerUndo.find(
+    //   (undo) => undo.msgId == String(event.data.content.globalMsgId)
+    // );
+
+    const key = `${event.threadId}_${String(event.data.content.globalMsgId)}`;
+    const handlerUndo = this.botContext.handlerUndo.get(key);
 
     if (handlerUndo && undoModules.has(handlerUndo.name)) {
       undoModules
@@ -222,7 +225,11 @@ export class SetupListeners {
       [RoleBotEnum.FREE]: 1,
     };
 
-    if(accountRole.expirationDate && new Date(accountRole.expirationDate) < new Date() && accountRole.role !== RoleBotEnum.ADMIN) {
+    if (
+      accountRole.expirationDate &&
+      new Date(accountRole.expirationDate) < new Date() &&
+      accountRole.role !== RoleBotEnum.ADMIN
+    ) {
       this.api.sendMessage(
         {
           msg: "❌ Bot đã hết hạn sử dụng. Vui lòng gia hạn để tiếp tục sử dụng bot.",

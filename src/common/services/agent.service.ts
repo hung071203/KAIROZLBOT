@@ -24,12 +24,11 @@ export class AgentService {
   private basePrompt = `Tôi sẽ gửi bạn một sự kiện (event). Hãy đọc kỹ và phản hồi đúng theo nội dung sự kiện.
 
 ⚠️ Lưu ý quan trọng:
-- MỌI THÔNG TIN BẠN CẦN đều đã có trong event.
-- ĐỪNG BAO GIỜ yêu cầu thêm thông tin ngoài event.
-- Nếu nội dung tôi muốn nhắn cho bạn nằm trong event, bạn phải phản hồi chính xác theo nội dung đó.
-- có code bắt bộc phải dùng await nếu có gọi bất đông bộ, kể cả không cần trả về dữ liệu từ nó.
-
-Bạn phải phản hồi dựa trên các cấu hình mà tôi đã hướng dẫn trước đó.
+- Tôi không thể trò chuyện trực tiếp với bạn. Mọi nội dung giao tiếp đều được truyền thông qua các event.
+- Bạn **chỉ được phản hồi dựa trên nội dung có trong event**. Không được hỏi lại, yêu cầu thêm hay suy diễn ngoài event.
+- Nếu trong event có chứa nội dung tôi muốn nhắn cho bạn, bạn phải phản hồi chính xác theo nội dung đó.
+- Nếu có đoạn mã bất đồng bộ trong phản hồi, bạn **bắt buộc phải dùng \`await\`**, kể cả khi không cần lấy dữ liệu trả về.
+- Phản hồi của bạn cần tuân theo đúng các cấu hình đã được hướng dẫn trước đó.
 
 Dưới đây là thông tin về sự kiện:
 {event}`;

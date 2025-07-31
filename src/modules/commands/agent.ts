@@ -59,17 +59,19 @@ export default {
       );
 
       if (response.success) {
-        context.handlerReply.push({
-          name: agentName,
-          msgId: String(sendData.message.msgId),
-          threadType: eventData.type,
-          threadId: eventData.threadId,
-          quote: eventData.data,
-          ttl: Date.now() + 1000 * 60 * 60, // TTL 1 giờ
-          data: {
-            history: response.history || [],
-          },
-        });
+        context.handlerReply.set(
+          `${eventData.threadId}_${String(sendData.message.msgId)}`,
+          {
+            name: agentName,
+            msgId: String(sendData.message.msgId),
+            threadType: eventData.type,
+            threadId: eventData.threadId,
+            quote: eventData.data,
+            data: {
+              history: response.history || [],
+            },
+          }
+        );
       }
     } catch (error: any) {
       console.error("Agent error:", error);
@@ -110,17 +112,19 @@ export default {
       );
 
       if (response.success) {
-        context.handlerReply.push({
-          name: agentName,
-          msgId: String(sendData.message.msgId),
-          threadType: event.type,
-          threadId: event.threadId,
-          quote: event.data,
-          ttl: Date.now() + 1000 * 60 * 60, // TTL 1 giờ
-          data: {
-            history: response.history || [],
-          },
-        });
+        context.handlerReply.set(
+          `${event.threadId}_${sendData.message.msgId}`,
+          {
+            name: agentName,
+            msgId: String(sendData.message.msgId),
+            threadType: event.type,
+            threadId: event.threadId,
+            quote: event.data,
+            data: {
+              history: response.history || [],
+            },
+          }
+        );
       }
     } catch (error: any) {
       console.error("Agent reply error:", error);

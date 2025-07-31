@@ -9,7 +9,8 @@
     "info",
     "warn",
     "error",
-    "success"
+    "success",
+    "debug"
   ],
   "logMemoryUsage": {
     "enabled": true,

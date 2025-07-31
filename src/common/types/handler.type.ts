@@ -4,6 +4,7 @@ import { HandlerManager } from "../../handlers/handler.manager";
 import { DatabaseManager } from "../../database";
 import { MultiAccountBotManager } from "../../configs";
 import { AppConfig } from "../../configs/app.config";
+import { LRUCache } from 'lru-cache';
 
 export interface BaseConfig {
   name: string;
@@ -26,7 +27,6 @@ export interface HandlerConfig {
   msgId: string;
   threadType: ThreadType;
   threadId: string;
-  ttl: number; // Thời gian sống của handler
   quote?: TMessage | TGroupMessage;
   data?: any;
 }
@@ -36,9 +36,9 @@ export interface BotContext {
   appConfig: AppConfig;
   botManager?: MultiAccountBotManager;
   handlerManager?: HandlerManager;
-  handlerReply?: HandlerConfig[];
-  handlerReaction?: HandlerConfig[];
-  handlerUndo?: HandlerConfig[];
+  handlerReply?: LRUCache<string, HandlerConfig>;
+  handlerReaction?: LRUCache<string, HandlerConfig>;
+  handlerUndo?: LRUCache<string, HandlerConfig>;
 }
 
 export interface IMessageEvent {
