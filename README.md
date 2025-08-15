@@ -225,10 +225,6 @@ export default {
   handlerEvent: async (api: API, context: BotContext, event: any) => {
     // Xử lý event
   },
-} as GroupEvents;
-```
-```
-
 ## 📚 API Classes
 
 ### KairoZLBot
